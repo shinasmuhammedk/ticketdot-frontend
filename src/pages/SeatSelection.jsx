@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams,useNavigate  } from 'react-router-dom';
 import { getSeats } from '../api/seats';
 import { ArrowLeft } from 'lucide-react';
 import SeatMap from '../components/SeatMap';
+import { lockSeat, confirmBooking } from '../api/bookings';
 
 // Assuming a base fare per seat (could be passed via props or context)
 // const BASE_FARE = 12.5; // $12.50 per seat
@@ -20,31 +21,72 @@ const SeatSelection = () => {
     const [error, setError] = useState('');
 
     const lockedSeats = Object.entries(seatStatus)
-        .filter(([, status]) => status === 'locked')
+        .filter(([, status]) => status?.toLowerCase() === 'locked')
         .map(([seat]) => seat);
 
     const selectedFare = selectedSeats.length * fare;
     const lockedFare = lockedSeats.length * fare;
+    const navigate = useNavigate();
 
-    const handleLockSeats = () => {
-        const newStatus = { ...seatStatus };
-        selectedSeats.forEach((seat) => {
-            newStatus[seat] = 'locked';
-        });
-        setSeatStatus(newStatus);
-        setSelectedSeats([]);
+
+    const handleLockSeats = async () => {
+        try {
+            const seat = selectedSeats[0];
+
+            await lockSeat(scheduleId, seat);
+
+            alert('Seat locked successfully');
+
+            const updated = await getSeats(scheduleId);
+
+            const statusMap = {};
+
+            updated.data.data.forEach((seat) => {
+                statusMap[seat.seat_number] = seat.status;
+            });
+
+            setSeatStatus(statusMap);
+            console.log("UPDATED STATUS MAP:", statusMap);
+            setSelectedSeats([]);
+        } catch (err) {
+            alert(
+                err.response?.data?.message ||
+                'Failed to lock seat'
+            );
+        }
     };
 
-    const handleConfirmBooking = () => {
-        const newStatus = { ...seatStatus };
-        Object.keys(newStatus).forEach((seat) => {
-            if (newStatus[seat] === 'locked') {
-                newStatus[seat] = 'booked';
+    const handleConfirmBooking = async () => {
+        try {
+            const seat = lockedSeats[0];
+
+            if (!seat) {
+                alert('Please lock a seat first');
+                return;
             }
-        });
-        setSeatStatus(newStatus);
-        alert('Booking confirmed!');
+
+            await confirmBooking(scheduleId, seat);
+
+            navigate(`/booking-success?seat=${seat}&fare=${fare}`);
+
+            const updated = await getSeats(scheduleId);
+
+            const statusMap = {};
+            updated.data.data.forEach((seat) => {
+                statusMap[seat.seat_number] = seat.status;
+            });
+
+            setSeatStatus(statusMap);
+        } catch (err) {
+            alert(
+                err.response?.data?.message ||
+                err.response?.data?.error ||
+                'Failed to confirm booking'
+            );
+        }
     };
+
+
     useEffect(() => {
         const loadSeats = async () => {
             setLoading(true);

@@ -8,3 +8,4 @@ export const login = (payload) => api.post('/auth/login', payload);
 
 // GET /auth/me  – requires JWT in Authorization header
 export const getCurrentUser = () => api.get('/auth/me');
+

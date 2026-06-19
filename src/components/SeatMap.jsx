@@ -3,20 +3,24 @@ import React from 'react';
 const SeatMap = ({ onSelect, selectedSeats, seatStatus }) => {
   const rows = Object.keys(seatStatus).sort();
 
+  const getStatus = (seat) => {
+    return seatStatus?.[seat]?.toLowerCase();
+  };
+
   const toggleSeat = (seat) => {
-    const status = seatStatus?.[seat];
+    const status = getStatus(seat);
 
     if (status === 'booked' || status === 'locked') return;
 
     if (selectedSeats.includes(seat)) {
       onSelect(selectedSeats.filter((s) => s !== seat));
     } else {
-      onSelect([seat]); // only one seat for now
+      onSelect([seat]);
     }
   };
 
   const getSeatColor = (seat) => {
-    const status = seatStatus?.[seat];
+    const status = getStatus(seat);
 
     if (selectedSeats.includes(seat)) return 'bg-[#10b981] text-white';
     if (status === 'locked') return 'bg-yellow-400 text-white cursor-not-allowed';
@@ -32,17 +36,21 @@ const SeatMap = ({ onSelect, selectedSeats, seatStatus }) => {
       </div>
 
       <div className="grid grid-cols-4 gap-3">
-        {rows.map((seat) => (
-          <button
-            key={seat}
-            type="button"
-            onClick={() => toggleSeat(seat)}
-            disabled={seatStatus?.[seat] === 'booked' || seatStatus?.[seat] === 'locked'}
-            className={`h-11 w-14 rounded border flex items-center justify-center text-sm font-medium transition-colors ${getSeatColor(seat)}`}
-          >
-            {seat}
-          </button>
-        ))}
+        {rows.map((seat) => {
+          const status = getStatus(seat);
+
+          return (
+            <button
+              key={seat}
+              type="button"
+              onClick={() => toggleSeat(seat)}
+              disabled={status === 'booked' || status === 'locked'}
+              className={`h-11 w-14 rounded border flex items-center justify-center text-sm font-medium transition-colors ${getSeatColor(seat)}`}
+            >
+              {seat}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

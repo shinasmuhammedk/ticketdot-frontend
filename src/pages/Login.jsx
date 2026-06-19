@@ -39,10 +39,25 @@ const Login = () => {
         setApiError('');
         try {
             const res = await loginApi({ email, password });
-            // Backend should return { token: '...' } – adjust key if different
-            const token = res.data.token || res.data.access_token;
-            if (token) localStorage.setItem('token', token);
-            navigate('/dashboard');
+
+            console.log("LOGIN RESPONSE:", res.data);
+
+            const token =
+                res.data.token ||
+                res.data.access_token ||
+                res.data.data?.token ||
+                res.data.data?.access_token;
+
+            if (!token) {
+                setApiError("Login succeeded but token was not returned");
+                return;
+            }
+
+            localStorage.setItem("token", token);
+
+            console.log("SAVED TOKEN:", localStorage.getItem("token"));
+
+            navigate("/dashboard");
         } catch (err) {
             const msg = err.response?.data?.message || err.response?.data?.error || 'Login failed. Please try again.';
             setApiError(msg);
