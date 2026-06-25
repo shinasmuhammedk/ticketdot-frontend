@@ -146,7 +146,7 @@ const TicketDetails = () => {
                                 </div>
                             </div>
                             <span className="text-2xl font-semibold text-gray-900 shrink-0">
-                                ₹{Number(ticket.fare || 0).toLocaleString('en-IN')}
+                                ₹{Number(ticket.amount || 0).toLocaleString('en-IN')}
                             </span>
                         </div>
                     </div>

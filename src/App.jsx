@@ -20,6 +20,8 @@ import OperatorBookings from './pages/operator/OperatorBookings';
 
 import MyBuses from './pages/operator/MyBuses';
 import TicketDetails from './pages/TicketDetails';
+import MyRoutes from './pages/operator/MyRoutes';
+import MySchedules from './pages/operator/MySchedules';
 
 
 
@@ -78,7 +80,7 @@ function App() {
                         </ProtectedRoute>
                     }
                 />
-                
+
                 <Route
                     path="/ticket/:bookingRef"
                     element={
@@ -139,6 +141,24 @@ function App() {
                     element={
                         <RoleProtectedRoute allowedRole="operator_admin">
                             <MyBuses />
+                        </RoleProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/operator/routes"
+                    element={
+                        <ProtectedRoute role="operator">
+                            <MyRoutes />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/operator/schedules"
+                    element={
+                        <RoleProtectedRoute allowedRole="operator_admin">
+                            <MySchedules />
                         </RoleProtectedRoute>
                     }
                 />
