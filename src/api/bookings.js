@@ -24,3 +24,7 @@ export const getMyBookings = () => {
 export const cancelBooking = (bookingRef) => {
   return api.post(`/bookings/${bookingRef}/cancel`);
 };
+
+export const getBookingDetails = (bookingRef) => {
+    return api.get(`/bookings/${bookingRef}`);
+};

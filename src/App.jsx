@@ -1,6 +1,9 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+
 import ProtectedRoute from './components/ProtectedRoute';
+import RoleProtectedRoute from './components/RoleProtectedRoute';
+
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
@@ -15,25 +18,128 @@ import CreateRoute from './pages/operator/CreateRoute';
 import CreateSchedule from './pages/operator/CreateSchedule';
 import OperatorBookings from './pages/operator/OperatorBookings';
 
+import MyBuses from './pages/operator/MyBuses';
+import TicketDetails from './pages/TicketDetails';
+
 function App() {
     return (
         <BrowserRouter>
             <Routes>
                 <Route path="/" element={<Navigate to="/login" replace />} />
+
+                {/* Public Routes */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
-                <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-                <Route path="/search" element={<ProtectedRoute><SearchResults /></ProtectedRoute>} />
-                <Route path="/seat-selection" element={<ProtectedRoute><SeatSelection /></ProtectedRoute>} />
-                <Route path="/my-bookings" element={<ProtectedRoute><MyBookings /></ProtectedRoute>} />
-                <Route path="/booking-success" element={<BookingSuccess />} />
 
+                {/* Passenger Routes */}
+                <Route
+                    path="/dashboard"
+                    element={
+                        <ProtectedRoute>
+                            <Dashboard />
+                        </ProtectedRoute>
+                    }
+                />
 
-                <Route path="/operator/dashboard" element={<OperatorDashboard />} />
-                <Route path="/operator/create-bus" element={<CreateBus />} />
-                <Route path="/operator/create-route" element={<CreateRoute />} />
-                <Route path="/operator/create-schedule" element={<CreateSchedule />} />
-                <Route path="/operator/bookings" element={<OperatorBookings />} />
+                <Route
+                    path="/search"
+                    element={
+                        <ProtectedRoute>
+                            <SearchResults />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/seat-selection"
+                    element={
+                        <ProtectedRoute>
+                            <SeatSelection />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/my-bookings"
+                    element={
+                        <ProtectedRoute>
+                            <MyBookings />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/booking-success"
+                    element={
+                        <ProtectedRoute>
+                            <BookingSuccess />
+                        </ProtectedRoute>
+                    }
+                />
+                
+                <Route
+                    path="/ticket/:bookingRef"
+                    element={
+                        <ProtectedRoute>
+                            <TicketDetails />
+                        </ProtectedRoute>
+                    }
+                />
+
+                {/* Operator Routes */}
+                <Route
+                    path="/operator/dashboard"
+                    element={
+                        <RoleProtectedRoute allowedRole="operator_admin">
+                            <OperatorDashboard />
+                        </RoleProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/operator/create-bus"
+                    element={
+                        <RoleProtectedRoute allowedRole="operator_admin">
+                            <CreateBus />
+                        </RoleProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/operator/create-route"
+                    element={
+                        <RoleProtectedRoute allowedRole="operator_admin">
+                            <CreateRoute />
+                        </RoleProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/operator/create-schedule"
+                    element={
+                        <RoleProtectedRoute allowedRole="operator_admin">
+                            <CreateSchedule />
+                        </RoleProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/operator/bookings"
+                    element={
+                        <RoleProtectedRoute allowedRole="operator_admin">
+                            <OperatorBookings />
+                        </RoleProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/operator/buses"
+                    element={
+                        <RoleProtectedRoute allowedRole="operator_admin">
+                            <MyBuses />
+                        </RoleProtectedRoute>
+                    }
+                />
             </Routes>
         </BrowserRouter>
     );

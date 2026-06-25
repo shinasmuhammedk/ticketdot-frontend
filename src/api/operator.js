@@ -15,3 +15,8 @@ export const createSchedule = (payload) => {
 export const getOperatorBookings = () => {
   return api.get('/operator/bookings');
 };
+
+
+export const getBuses = () => {
+    return api.get('/operator/buses');
+};

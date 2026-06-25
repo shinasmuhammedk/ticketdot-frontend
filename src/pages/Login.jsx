@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mail, Lock, Bus, Eye, EyeOff, ArrowRight, ShieldCheck } from 'lucide-react';
+import { Mail, Lock, Bus, Eye, EyeOff, ArrowRight, ShieldCheck, User } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { login as loginApi } from '../api/auth';
 
@@ -57,7 +57,24 @@ const Login = () => {
 
             console.log("SAVED TOKEN:", localStorage.getItem("token"));
 
-            navigate("/dashboard");
+
+
+            const user =
+                res.data.user ||
+                res.data.data?.user;
+
+            console.log("LOGIN USER:", user);
+
+            if (user) {
+                localStorage.setItem("user", JSON.stringify(user));
+            }
+
+            if (user?.role === "operator_admin") {
+                navigate("/operator/dashboard");
+            } else {
+                navigate("/dashboard");
+            }
+
         } catch (err) {
             const msg = err.response?.data?.message || err.response?.data?.error || 'Login failed. Please try again.';
             setApiError(msg);
