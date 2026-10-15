@@ -1,17 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+import { Link } from 'react-router-dom';
 import {
-  CalendarDays,
-  Clock,
-  Bus,
-  MapPin,
-  IndianRupee,
-  Users,
+  CalendarDays, Clock, Bus, MapPin, IndianRupee,
+  Users, Plus, ArrowRight
 } from 'lucide-react';
+import { getSchedules } from '../../api/operator';
+import OperatorLayout from '../../components/operator/OperatorLayout';
 
 const MySchedules = () => {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchSchedules();
@@ -19,183 +18,127 @@ const MySchedules = () => {
 
   const fetchSchedules = async () => {
     try {
-      const token = localStorage.getItem('token');
-
-      const res = await axios.get(
-        'http://localhost:8080/operator/schedules',
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      setSchedules(res.data.data || []);
+      const res = await getSchedules();
+      setSchedules(res.data?.data || []);
     } catch (err) {
-      console.error('Failed to fetch schedules', err);
+      setError('Failed to fetch scheduled trips');
     } finally {
       setLoading(false);
     }
   };
 
   const formatDateTime = (date) => {
-    return new Date(date).toLocaleString('en-IN', {
-      day: 'numeric',
-      month: 'short',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
+    if (!date) return '—';
+    try {
+      return new Date(date).toLocaleString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+      });
+    } catch {
+      return date;
+    }
   };
 
-  if (loading) {
-    return (
-      <div className="p-8">
-        <p className="text-stone-500">Loading schedules...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-slate-50 p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-2xl font-semibold text-stone-900">
-            My Schedules
-          </h1>
-          <p className="text-stone-500 mt-1">
-            Manage and monitor all scheduled trips.
+    <OperatorLayout
+      title="Trip Schedules"
+      subtitle="Monitor departure timings and active seat availability"
+      action={
+        <Link
+          to="/operator/create-schedule"
+          className="h-9 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+        >
+          <Plus size={14} />
+          <span>New Schedule</span>
+        </Link>
+      }
+    >
+      {loading ? (
+        <div className="py-20 text-center">
+          <div className="w-8 h-8 border-2 border-zinc-900 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-xs text-zinc-500 font-medium">Loading scheduled trips...</p>
+        </div>
+      ) : error ? (
+        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-700 font-medium">
+          {error}
+        </div>
+      ) : schedules.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-zinc-200 p-12 text-center">
+          <CalendarDays size={32} className="mx-auto text-zinc-300 mb-2" />
+          <h3 className="text-sm font-bold text-zinc-900">No Schedules Created Yet</h3>
+          <p className="text-xs text-zinc-400 mt-1 max-w-xs mx-auto">
+            Schedule a trip by selecting a route and assigning an available fleet bus.
           </p>
+          <Link
+            to="/operator/create-schedule"
+            className="inline-flex items-center gap-1.5 mt-4 px-4 py-2 rounded-xl bg-zinc-900 text-white text-xs font-semibold"
+          >
+            <Plus size={14} />
+            Create First Schedule
+          </Link>
         </div>
-
-        {/* Stats */}
-        <div className="bg-white border border-stone-200 rounded-xl p-5 mb-6">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-[#101F33] flex items-center justify-center">
-              <CalendarDays className="text-white" size={22} />
-            </div>
-
-            <div>
-              <p className="text-sm text-stone-500">
-                Total Schedules
-              </p>
-              <h2 className="text-2xl font-semibold text-stone-900">
-                {schedules.length}
-              </h2>
-            </div>
-          </div>
-        </div>
-
-        {/* Empty State */}
-        {schedules.length === 0 ? (
-          <div className="bg-white border border-stone-200 rounded-xl p-10 text-center">
-            <CalendarDays
-              size={42}
-              className="mx-auto text-stone-300 mb-3"
-            />
-
-            <h3 className="text-lg font-medium text-stone-900">
-              No Schedules Found
-            </h3>
-
-            <p className="text-stone-500 mt-1">
-              Create your first schedule to start accepting bookings.
-            </p>
-          </div>
-        ) : (
-          <div className="grid gap-5">
-            {schedules.map((schedule) => (
-              <div
-                key={schedule.id}
-                className="bg-white border border-stone-200 rounded-xl p-6 hover:shadow-sm transition-shadow"
-              >
-                {/* Route Header */}
-                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-5">
-                  <div>
-                    <div className="flex items-center gap-2 text-xl font-semibold text-stone-900">
-                      <MapPin size={18} />
-                      {schedule.origin}
-                      <span className="text-stone-400">→</span>
-                      {schedule.destination}
-                    </div>
-
-                    <p className="text-sm text-stone-500 mt-1">
-                      Schedule ID: {schedule.id}
-                    </p>
+      ) : (
+        <div className="space-y-3">
+          {schedules.map((schedule) => (
+            <div
+              key={schedule.id}
+              className="bg-white rounded-2xl border border-zinc-200/80 p-5 hover:border-zinc-300 transition-all shadow-xs"
+            >
+              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+                {/* Route & ID */}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 text-base font-bold text-zinc-900">
+                    <span>{schedule.origin}</span>
+                    <ArrowRight size={14} className="text-zinc-400" />
+                    <span>{schedule.destination}</span>
+                    <span className="ml-2 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-50 text-emerald-700 border border-emerald-200">
+                      {schedule.status}
+                    </span>
                   </div>
-
-                  <span
-                    className={`px-3 py-1 rounded-full text-xs font-medium w-fit ${
-                      schedule.status === 'scheduled'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-stone-100 text-stone-600'
-                    }`}
-                  >
-                    {schedule.status}
-                  </span>
+                  <div className="flex items-center gap-2 text-xs text-zinc-500 font-medium mt-1">
+                    <span className="font-mono font-semibold text-zinc-700">{schedule.bus_number}</span>
+                    <span className="text-zinc-300">•</span>
+                    <span>{schedule.bus_type?.replaceAll('_', ' ')}</span>
+                    <span className="text-zinc-300">•</span>
+                    <span className="font-mono text-[11px] text-zinc-400">ID: {schedule.id.slice(0, 8)}...</span>
+                  </div>
                 </div>
 
-                {/* Details Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+                {/* Timings */}
+                <div className="flex items-center gap-6 text-xs text-zinc-600 border-t lg:border-t-0 pt-3 lg:pt-0 border-zinc-100">
                   <div>
-                    <div className="flex items-center gap-2 text-stone-500 text-sm">
-                      <Bus size={15} />
-                      Bus
-                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-0.5">Depart</span>
+                    <span className="font-bold text-zinc-900 text-sm">{formatDateTime(schedule.departure_time)}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-0.5">Arrive</span>
+                    <span className="font-bold text-zinc-900 text-sm">{formatDateTime(schedule.arrival_time)}</span>
+                  </div>
+                </div>
 
-                    <p className="font-medium text-stone-900 mt-1">
-                      {schedule.bus_number}
-                    </p>
-
-                    <p className="text-sm text-stone-500">
-                      {schedule.bus_type
-                        ?.replaceAll('_', ' ')
-                        ?.toUpperCase()}
-                    </p>
+                {/* Capacity & Fare */}
+                <div className="flex items-center justify-between lg:justify-end gap-6 border-t lg:border-t-0 pt-3 lg:pt-0 border-zinc-100">
+                  <div className="text-right">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-0.5">Available</span>
+                    <span className="font-bold text-zinc-900 text-sm flex items-center gap-1 justify-end">
+                      <Users size={13} className="text-zinc-400" />
+                      {schedule.available_seats} seats
+                    </span>
                   </div>
 
-                  <div>
-                    <div className="flex items-center gap-2 text-stone-500 text-sm">
-                      <Clock size={15} />
-                      Departure
-                    </div>
-
-                    <p className="font-medium text-stone-900 mt-1">
-                      {formatDateTime(schedule.departure_time)}
-                    </p>
-
-                    <p className="text-sm text-stone-500 mt-2">
-                      Arrival: {formatDateTime(schedule.arrival_time)}
-                    </p>
-                  </div>
-
-                  <div>
-                    <div className="flex items-center gap-2 text-stone-500 text-sm">
-                      <Users size={15} />
-                      Available Seats
-                    </div>
-
-                    <p className="font-medium text-stone-900 mt-1">
-                      {schedule.available_seats}
-                    </p>
-
-                    <div className="flex items-center gap-2 mt-2 text-stone-500 text-sm">
-                      <IndianRupee size={14} />
-                      Fare
-                    </div>
-
-                    <p className="font-medium text-stone-900">
-                      ₹{schedule.base_fare}
-                    </p>
+                  <div className="text-right pl-4 border-l border-zinc-100">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-0.5">Fare</span>
+                    <span className="text-lg font-black text-zinc-900">₹{schedule.base_fare}</span>
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </OperatorLayout>
   );
 };
 

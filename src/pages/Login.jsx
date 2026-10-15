@@ -264,7 +264,7 @@ const Login = () => {
                             <button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full h-12 rounded-xl bg-[#101F33] text-white text-[15px] font-medium flex items-center justify-center gap-2 transition-all hover:bg-[#1A2D47] active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed"
+                                className="w-full h-12 rounded-xl bg-[#101F33] text-white text-[15px] font-medium flex items-center justify-center gap-2 transition-all hover:bg-[#1A2D47] active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
                             >
                                 {isLoading ? (
                                     <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -275,6 +275,39 @@ const Login = () => {
                                     </>
                                 )}
                             </button>
+
+                            {/* Quick Demo Autofill */}
+                            <div className="pt-4 border-t border-stone-200">
+                                <p className="text-[11px] font-bold text-stone-400 uppercase tracking-wider mb-2 text-center">
+                                    Quick Test Accounts
+                                </p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setEmail('bob@example.com');
+                                            setPassword('password123');
+                                            setErrors({});
+                                        }}
+                                        className="px-3 py-2 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-700 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                                    >
+                                        <User size={13} />
+                                        Passenger
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setEmail('shinas@gmail.com');
+                                            setPassword('password123');
+                                            setErrors({});
+                                        }}
+                                        className="px-3 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
+                                    >
+                                        <Bus size={13} />
+                                        Operator
+                                    </button>
+                                </div>
+                            </div>
                         </form>
 
                         <p className="mt-8 text-center text-[15px] text-stone-500">

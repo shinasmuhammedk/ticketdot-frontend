@@ -1,214 +1,348 @@
-import { Bus, User, Bell, SlidersHorizontal, ArrowLeft, Search, Calendar } from 'lucide-react';
-import BusCard from '../components/BusCard';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
+import {
+  Bus, SlidersHorizontal, ArrowLeft, Calendar, ArrowUpDown, X, RotateCcw,
+  Sparkles, Filter, ChevronDown
+} from 'lucide-react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { searchBuses } from '../api/buses';
+import BusCard from '../components/BusCard';
+import Navbar from '../components/Navbar';
+
+const TIME_SLOTS = [
+  { id: 'morning', label: 'Morning (6 AM – 12 PM)', min: 6, max: 12 },
+  { id: 'afternoon', label: 'Afternoon (12 PM – 6 PM)', min: 12, max: 18 },
+  { id: 'evening', label: 'Evening (6 PM – 12 AM)', min: 18, max: 24 },
+  { id: 'night', label: 'Night (12 AM – 6 AM)', min: 0, max: 6 },
+];
+
+const BUS_TYPES = [
+  { id: 'AC_SLEEPER', label: 'AC Sleeper' },
+  { id: 'NON_AC_SLEEPER', label: 'Non-AC Sleeper' },
+  { id: 'AC_SEATER', label: 'AC Seater' },
+  { id: 'NON_AC_SEATER', label: 'Non-AC Seater' },
+];
 
 const SearchResults = () => {
-    const [searchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
-    const from = searchParams.get('from') || '';
-    const to = searchParams.get('to') || '';
-    const date = searchParams.get('date') || '';
+  const from = searchParams.get('from') || '';
+  const to = searchParams.get('to') || '';
+  const date = searchParams.get('date') || '';
 
-    const [buses, setBuses] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
+  const [buses, setBuses] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
-    const navigate = useNavigate();
+  // Filters & Sorting state
+  const [selectedTimeSlots, setSelectedTimeSlots] = useState([]);
+  const [selectedBusTypes, setSelectedBusTypes] = useState([]);
+  const [selectedOperators, setSelectedOperators] = useState([]);
+  const [sortBy, setSortBy] = useState('departure');
 
-    useEffect(() => {
-        const loadBuses = async () => {
-            setLoading(true);
-            setError('');
+  const navigate = useNavigate();
 
-            try {
-                const res = await searchBuses({ from, to, date });
-                setBuses(res.data.data || []);
-            } catch (err) {
-                setError(
-                    err.response?.data?.message ||
-                    err.response?.data?.error ||
-                    'Failed to load buses'
-                );
-            } finally {
-                setLoading(false);
-            }
-        };
+  useEffect(() => {
+    const loadBuses = async () => {
+      setLoading(true);
+      setError('');
 
-        if (from && to && date) {
-            loadBuses();
-        }
-    }, [from, to, date]);
-
-    const formatDate = (dateStr) => {
-        if (!dateStr) return '';
-        const d = new Date(dateStr);
-        return d.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' });
+      try {
+        const res = await searchBuses({ from, to, date });
+        setBuses(res.data.data || []);
+      } catch (err) {
+        setError(
+          err.response?.data?.message ||
+          err.response?.data?.error ||
+          'Failed to load buses'
+        );
+      } finally {
+        setLoading(false);
+      }
     };
 
-    return (
-        <div className="min-h-screen bg-white text-gray-900">
-            {/* Header */}
-            <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
-                <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-                    <Link to="/dashboard" className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 transition-colors">
-                        <ArrowLeft size={18} strokeWidth={1.5} />
-                        <span className="hidden sm:inline">Back</span>
-                    </Link>
-                    <div className="flex items-center gap-3">
-                        <button className="w-8 h-8 rounded-full hover:bg-gray-50 flex items-center justify-center text-gray-400 hover:text-gray-600 transition-colors">
-                            <Bell size={18} strokeWidth={1.5} />
-                        </button>
-                        <div className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-600">
-                            <User size={16} strokeWidth={1.5} />
-                        </div>
-                    </div>
-                </div>
-            </header>
+    if (from && to && date) {
+      loadBuses();
+    }
+  }, [from, to, date]);
 
-            {/* Search Summary */}
-            <div className="border-b border-gray-100 bg-gray-50/50">
-                <div className="max-w-6xl mx-auto px-4 sm:px-6 py-5">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-                                <Bus size={18} className="text-blue-600" strokeWidth={1.5} />
-                            </div>
-                            <div>
-                                <h1 className="text-base font-semibold text-gray-900 flex items-center gap-2">
-                                    {from}
-                                    <ArrowLeft size={14} className="text-gray-400 rotate-180" strokeWidth={1.5} />
-                                    {to}
-                                </h1>
-                                <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1.5">
-                                    <Calendar size={12} strokeWidth={1.5} />
-                                    {formatDate(date)}
-                                    <span className="text-gray-300">·</span>
-                                    {buses.length} bus{buses.length !== 1 ? 'es' : ''} found
-                                </p>
-                            </div>
-                        </div>
-                        <button
-                            onClick={() => navigate(-1)}
-                            className="h-9 px-4 rounded-lg border border-gray-200 bg-white text-gray-700 text-sm font-medium hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center gap-2 w-fit"
-                        >
-                            <Search size={14} strokeWidth={1.5} />
-                            Modify
-                        </button>
-                    </div>
+  const availableOperators = useMemo(() => {
+    return Array.from(new Set(buses.map((b) => b.operator_name).filter(Boolean)));
+  }, [buses]);
+
+  const toggleFilter = (list, setList, item) => {
+    if (list.includes(item)) {
+      setList(list.filter((x) => x !== item));
+    } else {
+      setList([...list, item]);
+    }
+  };
+
+  const clearAllFilters = () => {
+    setSelectedTimeSlots([]);
+    setSelectedBusTypes([]);
+    setSelectedOperators([]);
+    setSortBy('departure');
+  };
+
+  const activeFilterCount =
+    selectedTimeSlots.length +
+    selectedBusTypes.length +
+    selectedOperators.length +
+    (sortBy !== 'departure' ? 1 : 0);
+
+  const filteredBuses = useMemo(() => {
+    return buses.filter((bus) => {
+      // Filter by time slot
+      if (selectedTimeSlots.length > 0) {
+        const depDate = new Date(bus.departure_time);
+        const hour = depDate.getHours();
+        const matchesAnySlot = selectedTimeSlots.some((slotId) => {
+          const slot = TIME_SLOTS.find((s) => s.id === slotId);
+          if (!slot) return false;
+          return hour >= slot.min && hour < slot.max;
+        });
+        if (!matchesAnySlot) return false;
+      }
+
+      // Filter by bus type
+      if (selectedBusTypes.length > 0) {
+        const typeNormalized = (bus.bus_type || '').toUpperCase();
+        if (!selectedBusTypes.includes(typeNormalized)) {
+          return false;
+        }
+      }
+
+      // Filter by operator
+      if (selectedOperators.length > 0) {
+        if (!selectedOperators.includes(bus.operator_name)) {
+          return false;
+        }
+      }
+
+      return true;
+    }).sort((a, b) => {
+      if (sortBy === 'price_asc') return (a.base_fare || 0) - (b.base_fare || 0);
+      if (sortBy === 'price_desc') return (b.base_fare || 0) - (a.base_fare || 0);
+      // default: departure time
+      return new Date(a.departure_time) - new Date(b.departure_time);
+    });
+  }, [buses, selectedTimeSlots, selectedBusTypes, selectedOperators, sortBy]);
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    return isNaN(d.getTime())
+      ? dateStr
+      : d.toLocaleDateString('en-IN', {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        });
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col text-slate-900">
+      <Navbar />
+
+      {/* Route & Search Summary Strip */}
+      <div className="bg-white border-b border-slate-200/80 shadow-xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Link
+                to="/dashboard"
+                className="w-10 h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors shrink-0"
+                title="Back to search"
+              >
+                <ArrowLeft size={18} />
+              </Link>
+              <div>
+                <div className="flex items-center gap-2 text-lg sm:text-xl font-black text-slate-900 tracking-tight">
+                  <span>{from}</span>
+                  <span className="text-indigo-500 font-normal">→</span>
+                  <span>{to}</span>
                 </div>
+                <div className="flex items-center gap-2 text-xs text-slate-500 font-medium mt-0.5">
+                  <Calendar size={13} className="text-slate-400" />
+                  <span>{formatDate(date)}</span>
+                  <span className="text-slate-300">•</span>
+                  <span className="text-indigo-600 font-bold">{buses.length} buses found</span>
+                </div>
+              </div>
             </div>
 
-            {/* Main Content */}
-            <div className="max-w-6xl mx-auto px-4 sm:px-6 py-6 flex flex-col lg:flex-row gap-6">
-                {/* Filters Sidebar */}
-                <aside className="w-full lg:w-60 flex-shrink-0">
-                    <div className="lg:sticky lg:top-20 space-y-4">
-                        <div className="rounded-2xl border border-gray-100 bg-white shadow-sm overflow-hidden">
-                            <div className="px-5 py-4 border-b border-gray-50 flex items-center justify-between">
-                                <h2 className="text-sm font-semibold text-gray-900 flex items-center gap-2">
-                                    <SlidersHorizontal size={15} strokeWidth={1.5} />
-                                    Filters
-                                </h2>
-                                <button className="text-xs font-medium text-gray-400 hover:text-gray-600 transition-colors">
-                                    Clear
-                                </button>
-                            </div>
-
-                            <div className="p-5 space-y-6">
-                                <FilterSection title="Departure Time">
-                                    {['Morning (6AM – 12PM)', 'Afternoon (12PM – 6PM)', 'Evening (6PM – 12AM)', 'Night (12AM – 6AM)'].map(time => (
-                                        <label key={time} className="flex items-center gap-3 cursor-pointer group">
-                                            <input type="checkbox" className="w-4 h-4 rounded border-gray-200 text-blue-600 focus:ring-blue-500/20" />
-                                            <span className="text-sm text-gray-600 group-hover:text-gray-900 transition-colors">{time}</span>
-                                        </label>
-                                    ))}
-                                </FilterSection>
-
-                                <FilterSection title="Bus Type">
-                                    {['AC Sleeper', 'Non-AC Sleeper', 'Semi-Sleeper', 'Seater'].map(type => (
-                                        <label key={type} className="flex items-center gap-3 cursor-pointer group">
-                                            <input type="checkbox" className="w-4 h-4 rounded border-gray-200 text-blue-600 focus:ring-blue-500/20" />
-                                            <span className="text-sm text-gray-600 group-hover:text-gray-900 transition-colors">{type}</span>
-                                        </label>
-                                    ))}
-                                </FilterSection>
-
-                                <FilterSection title="Operator">
-                                    {['Acme Travels', 'Swift Bus', 'Royal Coaches', 'Express Lines'].map(op => (
-                                        <label key={op} className="flex items-center gap-3 cursor-pointer group">
-                                            <input type="checkbox" className="w-4 h-4 rounded border-gray-200 text-blue-600 focus:ring-blue-500/20" />
-                                            <span className="text-sm text-gray-600 group-hover:text-gray-900 transition-colors">{op}</span>
-                                        </label>
-                                    ))}
-                                </FilterSection>
-                            </div>
-                        </div>
-                    </div>
-                </aside>
-
-                {/* Results */}
-                <main className="flex-1 min-w-0">
-                    {/* Loading */}
-                    {loading && (
-                        <div className="space-y-3">
-                            {Array.from({ length: 3 }).map((_, i) => (
-                                <div key={i} className="h-28 bg-gray-50 rounded-2xl border border-gray-100 animate-pulse" />
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Error */}
-                    {error && (
-                        <div className="rounded-2xl border border-red-100 bg-red-50 p-6 text-center">
-                            <p className="text-sm text-red-600">{error}</p>
-                        </div>
-                    )}
-
-                    {/* Empty */}
-                    {!loading && !error && buses.length === 0 && (
-                        <div className="flex flex-col items-center text-center py-16">
-                            <div className="w-14 h-14 rounded-2xl bg-gray-50 border border-gray-100 flex items-center justify-center mb-5">
-                                <Search size={24} className="text-gray-400" strokeWidth={1.5} />
-                            </div>
-                            <p className="text-gray-900 font-medium text-base">No buses found</p>
-                            <p className="text-gray-400 text-sm mt-1">
-                                Try changing your search criteria.
-                            </p>
-                        </div>
-                    )}
-
-                    {/* Results List */}
-                    {!loading && !error && buses.length > 0 && (
-                        <div className="space-y-3">
-                            {buses.map(bus => (
-                                <BusCard
-                                    key={bus.schedule_id}
-                                    scheduleID={bus.schedule_id}
-                                    operatorName={bus.operator_name}
-                                    busType={bus.bus_type}
-                                    departureTime={bus.departure_time}
-                                    arrivalTime={bus.arrival_time}
-                                    availableSeats={bus.available_seats}
-                                    fare={bus.base_fare}
-                                />
-                            ))}
-                        </div>
-                    )}
-                </main>
+            {/* Quick Sort Control */}
+            <div className="flex items-center gap-3 self-end sm:self-auto">
+              <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs">
+                <ArrowUpDown size={14} className="text-slate-400" />
+                <span className="font-semibold text-slate-500">Sort By:</span>
+                <select
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                  className="bg-transparent font-bold text-slate-800 outline-none cursor-pointer"
+                >
+                  <option value="departure">Departure Time</option>
+                  <option value="price_asc">Price: Low to High</option>
+                  <option value="price_desc">Price: High to Low</option>
+                </select>
+              </div>
             </div>
+          </div>
         </div>
-    );
-};
+      </div>
 
-const FilterSection = ({ title, children }) => (
-    <div>
-        <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wide mb-3">{title}</h3>
-        <div className="space-y-2.5">
-            {children}
+      {/* Main Content Area: Filters Sidebar + Results List */}
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8 items-start">
+          
+          {/* Left Filters Sidebar */}
+          <aside className="lg:col-span-1 bg-white rounded-3xl border border-slate-200/80 p-5 sm:p-6 shadow-xs sticky top-20">
+            <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+              <div className="flex items-center gap-2 text-sm font-bold text-slate-900">
+                <Filter size={16} className="text-indigo-600" />
+                <span>Filters</span>
+                {activeFilterCount > 0 && (
+                  <span className="w-5 h-5 rounded-full bg-indigo-600 text-white text-[11px] font-bold flex items-center justify-center">
+                    {activeFilterCount}
+                  </span>
+                )}
+              </div>
+              {activeFilterCount > 0 && (
+                <button
+                  type="button"
+                  onClick={clearAllFilters}
+                  className="text-xs font-semibold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 transition-colors"
+                >
+                  <RotateCcw size={12} />
+                  Reset
+                </button>
+              )}
+            </div>
+
+            <div className="space-y-6 pt-5">
+              {/* Departure Time Slots */}
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+                  Departure Time
+                </label>
+                <div className="space-y-2.5">
+                  {TIME_SLOTS.map((slot) => (
+                    <label key={slot.id} className="flex items-center gap-2.5 text-xs font-medium text-slate-700 cursor-pointer hover:text-indigo-600 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={selectedTimeSlots.includes(slot.id)}
+                        onChange={() => toggleFilter(selectedTimeSlots, setSelectedTimeSlots, slot.id)}
+                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500/20 border-slate-300"
+                      />
+                      <span>{slot.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bus Type */}
+              <div className="pt-4 border-t border-slate-100">
+                <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+                  Bus Type
+                </label>
+                <div className="space-y-2.5">
+                  {BUS_TYPES.map((type) => (
+                    <label key={type.id} className="flex items-center gap-2.5 text-xs font-medium text-slate-700 cursor-pointer hover:text-indigo-600 transition-colors">
+                      <input
+                        type="checkbox"
+                        checked={selectedBusTypes.includes(type.id)}
+                        onChange={() => toggleFilter(selectedBusTypes, setSelectedBusTypes, type.id)}
+                        className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500/20 border-slate-300"
+                      />
+                      <span>{type.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Operators */}
+              {availableOperators.length > 0 && (
+                <div className="pt-4 border-t border-slate-100">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">
+                    Bus Operators
+                  </label>
+                  <div className="space-y-2.5">
+                    {availableOperators.map((op) => (
+                      <label key={op} className="flex items-center gap-2.5 text-xs font-medium text-slate-700 cursor-pointer hover:text-indigo-600 transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={selectedOperators.includes(op)}
+                          onChange={() => toggleFilter(selectedOperators, setSelectedOperators, op)}
+                          className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500/20 border-slate-300"
+                        />
+                        <span>{op}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </aside>
+
+          {/* Right Bus Results List */}
+          <section className="lg:col-span-3 space-y-4">
+            {loading ? (
+              <div className="bg-white rounded-3xl p-12 text-center border border-slate-200">
+                <div className="w-10 h-10 border-3 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+                <p className="text-sm font-bold text-slate-800">Searching available buses...</p>
+                <p className="text-xs text-slate-400 mt-1">Connecting to live operator inventories</p>
+              </div>
+            ) : error ? (
+              <div className="bg-red-50 rounded-3xl p-8 text-center border border-red-200">
+                <p className="text-sm font-bold text-red-700">{error}</p>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="mt-3 px-4 py-2 bg-red-600 text-white rounded-xl text-xs font-semibold hover:bg-red-700"
+                >
+                  Try Again
+                </button>
+              </div>
+            ) : filteredBuses.length === 0 ? (
+              <div className="bg-white rounded-3xl p-12 text-center border border-slate-200/80 shadow-xs">
+                <div className="w-16 h-16 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center mx-auto mb-4">
+                  <Bus size={30} />
+                </div>
+                <h3 className="text-lg font-bold text-slate-900">No buses match your criteria</h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  Try clearing some filters or searching for alternative travel dates.
+                </p>
+                {activeFilterCount > 0 && (
+                  <button
+                    onClick={clearAllFilters}
+                    className="mt-5 px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all shadow-sm"
+                  >
+                    Reset All Filters
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredBuses.map((bus) => (
+                  <BusCard
+                    key={bus.schedule_id}
+                    scheduleID={bus.schedule_id}
+                    operatorName={bus.operator_name}
+                    busType={bus.bus_type}
+                    departureTime={bus.departure_time}
+                    arrivalTime={bus.arrival_time}
+                    availableSeats={bus.available_seats}
+                    fare={bus.base_fare}
+                  />
+                ))}
+              </div>
+            )}
+          </section>
+
         </div>
+      </main>
     </div>
-);
+  );
+};
 
 export default SearchResults;

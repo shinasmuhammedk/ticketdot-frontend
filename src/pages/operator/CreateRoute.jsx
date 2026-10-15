@@ -1,136 +1,55 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import {
-  ArrowLeft,
-  Route,
-  CheckCircle2,
-  AlertCircle,
-  X,
-  Search,
-  ArrowLeftRight,
-  MapPin,
-  ChevronDown,
-} from 'lucide-react';
-import { createRoute } from '../../api/operator';
-
-// Placeholder city list — replace with a real lookup (API or context) once available.
-const CITIES = [
-  { id: '1', name: 'Bengaluru', state: 'Karnataka' },
-  { id: '2', name: 'Chennai', state: 'Tamil Nadu' },
-  { id: '3', name: 'Hyderabad', state: 'Telangana' },
-  { id: '4', name: 'Mumbai', state: 'Maharashtra' },
-  { id: '5', name: 'Pune', state: 'Maharashtra' },
-  { id: '6', name: 'Kochi', state: 'Kerala' },
-  { id: '7', name: 'Coimbatore', state: 'Tamil Nadu' },
-  { id: '8', name: 'Vijayawada', state: 'Andhra Pradesh' },
-  { id: '9', name: 'Mangaluru', state: 'Karnataka' },
-  { id: '10', name: 'Madurai', state: 'Tamil Nadu' },
-];
-
-const CityPicker = ({ label, value, onChange, placeholder, error }) => {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const wrapRef = useRef(null);
-
-  const selected = CITIES.find((c) => c.id === value);
-  const results = CITIES.filter((c) =>
-    c.name.toLowerCase().includes(query.toLowerCase())
-  );
-
-  useEffect(() => {
-    const handleClick = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
-    };
-    document.addEventListener('mousedown', handleClick);
-    return () => document.removeEventListener('mousedown', handleClick);
-  }, []);
-
-  return (
-    <div ref={wrapRef} className="relative flex-1">
-      <label className="block text-sm font-medium text-stone-700 mb-1.5">{label}</label>
-      <button
-        type="button"
-        onClick={() => setOpen((o) => !o)}
-        aria-invalid={Boolean(error)}
-        className={`w-full h-12 px-4 rounded-xl border bg-white text-[15px] flex items-center justify-between outline-none transition-colors
-          ${error
-            ? 'border-red-300 focus:ring-4 focus:ring-red-50'
-            : 'border-stone-200 focus:border-[#101F33] focus:ring-4 focus:ring-[#101F33]/5'
-          }`}
-      >
-        <span className={`flex items-center gap-2 ${selected ? 'text-stone-900' : 'text-stone-400'}`}>
-          <MapPin size={16} className={selected ? 'text-[#101F33]' : 'text-stone-400'} />
-          {selected ? selected.name : placeholder}
-        </span>
-        <ChevronDown size={16} className="text-stone-400" />
-      </button>
-
-      {open && (
-        <div className="absolute z-20 mt-1.5 w-full bg-white rounded-xl border border-stone-200 shadow-lg overflow-hidden">
-          <div className="flex items-center gap-2 px-3.5 py-2.5 border-b border-stone-100">
-            <Search size={15} className="text-stone-400" />
-            <input
-              autoFocus
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search cities"
-              className="flex-1 text-[14px] outline-none placeholder:text-stone-400"
-            />
-          </div>
-          <div className="max-h-56 overflow-y-auto">
-            {results.length === 0 && (
-              <p className="px-4 py-3 text-[13.5px] text-stone-400">No cities found</p>
-            )}
-            {results.map((c) => (
-              <button
-                key={c.id}
-                type="button"
-                onClick={() => {
-                  onChange(c.id);
-                  setOpen(false);
-                  setQuery('');
-                }}
-                className={`w-full flex items-center justify-between px-4 py-2.5 text-left text-[14px] hover:bg-stone-50 transition-colors
-                  ${value === c.id ? 'bg-stone-50' : ''}`}
-              >
-                <span className="text-stone-900">{c.name}</span>
-                <span className="text-stone-400 text-[12.5px]">{c.state}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {error && <p className="mt-1.5 text-sm text-red-500">{error}</p>}
-    </div>
-  );
-};
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Route, MapPin, ArrowRight, ArrowLeft, ArrowLeftRight } from 'lucide-react';
+import { createRoute, getCities } from '../../api/operator';
+import OperatorLayout from '../../components/operator/OperatorLayout';
+import Toast from '../Toast';
 
 const CreateRoute = () => {
+  const navigate = useNavigate();
+  const [cities, setCities] = useState([]);
   const [originCityId, setOriginCityId] = useState('');
   const [destinationCityId, setDestinationCityId] = useState('');
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
+  const [citiesLoading, setCitiesLoading] = useState(true);
   const [fieldErrors, setFieldErrors] = useState({});
+  const [toastMessage, setToastMessage] = useState('');
+
+  useEffect(() => {
+    const fetchCities = async () => {
+      try {
+        const res = await getCities();
+        setCities(res.data?.data || []);
+      } catch (err) {
+        setToastMessage('Failed to load supported cities');
+      } finally {
+        setCitiesLoading(false);
+      }
+    };
+    fetchCities();
+  }, []);
+
+  const handleSwap = () => {
+    const temp = originCityId;
+    setOriginCityId(destinationCityId);
+    setDestinationCityId(temp);
+  };
 
   const validate = () => {
-    const next = {};
-    if (!originCityId) next.origin = 'Select an origin city';
-    if (!destinationCityId) next.destination = 'Select a destination city';
+    const errors = {};
+    if (!originCityId) errors.originCityId = 'Select origin city';
+    if (!destinationCityId) errors.destinationCityId = 'Select destination city';
     if (originCityId && destinationCityId && originCityId === destinationCityId) {
-      next.destination = 'Destination must be different from origin';
+      errors.destinationCityId = 'Origin and destination cannot be the same';
     }
-    return next;
+    return errors;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const validationErrors = validate();
-    setFieldErrors(validationErrors);
-    setMessage('');
-    setError('');
-    if (Object.keys(validationErrors).length > 0) return;
+    const errors = validate();
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
 
     setLoading(true);
     try {
@@ -139,140 +58,124 @@ const CreateRoute = () => {
         destination_city_id: destinationCityId,
       });
 
-      const o = CITIES.find((c) => c.id === originCityId)?.name;
-      const d = CITIES.find((c) => c.id === destinationCityId)?.name;
-      setMessage(`Route ${o} \u2192 ${d} created successfully`);
-      setOriginCityId('');
-      setDestinationCityId('');
-      setFieldErrors({});
+      setToastMessage('Route established successfully.');
+      setTimeout(() => navigate('/operator/routes'), 1000);
     } catch (err) {
-      setError(
-        err.response?.data?.message ||
-          err.response?.data?.error ||
-          'Failed to create route'
-      );
+      setToastMessage(err.response?.data?.message || 'Failed to establish route');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSwap = () => {
-    setOriginCityId(destinationCityId);
-    setDestinationCityId(originCityId);
-  };
-
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-stone-200 h-16 flex items-center px-6 lg:px-8">
+    <OperatorLayout
+      title="Create Route"
+      subtitle="Establish a new travel corridor in your operational network"
+      action={
         <Link
-          to="/operator/dashboard"
-          className="flex items-center gap-2 text-[13.5px] font-medium text-stone-500 hover:text-stone-800 transition-colors"
+          to="/operator/routes"
+          className="h-9 px-3.5 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-100 text-xs font-semibold flex items-center gap-1.5 transition-colors"
         >
-          <ArrowLeft size={16} />
-          Operator dashboard
+          <ArrowLeft size={14} />
+          <span>Routes List</span>
         </Link>
-      </header>
+      }
+    >
+      {toastMessage && (
+        <Toast
+          message={toastMessage}
+          onClose={() => setToastMessage('')}
+        />
+      )}
 
-      <main className="max-w-xl mx-auto px-6 py-10">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-9 h-9 rounded-lg bg-[#101F33] flex items-center justify-center">
-            <Route size={18} className="text-white" />
-          </div>
-          <h1 className="text-2xl font-semibold text-stone-900">Add a route</h1>
-        </div>
-        <p className="text-stone-500 text-[15px] ml-12">
-          Define the origin and destination for a new route.
-        </p>
-
-        {message && (
-          <div className="mt-6 flex items-start gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3.5">
-            <CheckCircle2 size={18} className="text-emerald-600 mt-0.5 shrink-0" />
-            <p className="text-[14px] text-emerald-800 flex-1">{message}</p>
-            <button onClick={() => setMessage('')} aria-label="Dismiss">
-              <X size={16} className="text-emerald-600" />
-            </button>
-          </div>
-        )}
-        {error && (
-          <div className="mt-6 flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3.5">
-            <AlertCircle size={18} className="text-red-600 mt-0.5 shrink-0" />
-            <p className="text-[14px] text-red-700 flex-1">{error}</p>
-            <button onClick={() => setError('')} aria-label="Dismiss">
-              <X size={16} className="text-red-600" />
-            </button>
-          </div>
-        )}
-
-        <div className="mt-7 bg-white rounded-2xl border border-stone-200 p-6">
-          <form onSubmit={handleSubmit} noValidate className="space-y-6">
-            <div className="flex items-start gap-3">
-              <CityPicker
-                label="Origin city"
+      <div className="max-w-2xl bg-white rounded-3xl border border-zinc-200/80 p-6 sm:p-8 shadow-xs">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-9 gap-4 items-center">
+            {/* Origin City */}
+            <div className="md:col-span-4">
+              <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">
+                Origin City
+              </label>
+              <select
                 value={originCityId}
-                onChange={(id) => {
-                  setOriginCityId(id);
-                  if (fieldErrors.origin) setFieldErrors((p) => ({ ...p, origin: undefined }));
+                onChange={(e) => {
+                  setOriginCityId(e.target.value);
+                  if (fieldErrors.originCityId) setFieldErrors((p) => ({ ...p, originCityId: undefined }));
                 }}
-                placeholder="Select origin"
-                error={fieldErrors.origin}
-              />
+                className="w-full h-11 px-3 rounded-xl border border-zinc-200 text-sm font-semibold text-zinc-900 bg-zinc-50/50 focus:bg-white focus:border-zinc-900 outline-none transition-all cursor-pointer"
+              >
+                <option value="">Select departure city</option>
+                {cities.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} {c.state ? `(${c.state})` : ''}
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.originCityId && (
+                <p className="text-xs text-red-600 mt-1 font-medium">{fieldErrors.originCityId}</p>
+              )}
+            </div>
 
+            {/* Swap Button */}
+            <div className="hidden md:flex md:col-span-1 justify-center pt-5">
               <button
                 type="button"
                 onClick={handleSwap}
-                aria-label="Swap origin and destination"
-                className="mt-7 w-10 h-10 rounded-full border border-stone-200 flex items-center justify-center text-stone-400 hover:text-[#101F33] hover:border-[#101F33]/30 transition-colors shrink-0"
+                className="w-9 h-9 rounded-full border border-zinc-200 text-zinc-500 hover:text-zinc-900 hover:bg-zinc-100 flex items-center justify-center transition-colors cursor-pointer"
+                title="Swap origin and destination"
               >
-                <ArrowLeftRight size={16} />
+                <ArrowLeftRight size={14} />
               </button>
-
-              <CityPicker
-                label="Destination city"
-                value={destinationCityId}
-                onChange={(id) => {
-                  setDestinationCityId(id);
-                  if (fieldErrors.destination)
-                    setFieldErrors((p) => ({ ...p, destination: undefined }));
-                }}
-                placeholder="Select destination"
-                error={fieldErrors.destination}
-              />
             </div>
 
-            {/* Route preview */}
-            {(originCityId || destinationCityId) && (
-              <div className="flex items-center gap-3 bg-slate-50 rounded-xl px-4 py-3.5">
-                <span className="text-[14px] font-medium text-stone-700 truncate">
-                  {CITIES.find((c) => c.id === originCityId)?.name || (
-                    <span className="text-stone-400">Origin</span>
-                  )}
-                </span>
-                <div className="flex-1 h-px bg-stone-300 relative min-w-[24px]">
-                  <div className="absolute right-0 -top-[3px] w-0 h-0 border-l-[6px] border-l-stone-300 border-y-[3px] border-y-transparent" />
-                </div>
-                <span className="text-[14px] font-medium text-stone-700 truncate">
-                  {CITIES.find((c) => c.id === destinationCityId)?.name || (
-                    <span className="text-stone-400">Destination</span>
-                  )}
-                </span>
-              </div>
-            )}
+            {/* Destination City */}
+            <div className="md:col-span-4">
+              <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">
+                Destination City
+              </label>
+              <select
+                value={destinationCityId}
+                onChange={(e) => {
+                  setDestinationCityId(e.target.value);
+                  if (fieldErrors.destinationCityId) setFieldErrors((p) => ({ ...p, destinationCityId: undefined }));
+                }}
+                className="w-full h-11 px-3 rounded-xl border border-zinc-200 text-sm font-semibold text-zinc-900 bg-zinc-50/50 focus:bg-white focus:border-zinc-900 outline-none transition-all cursor-pointer"
+              >
+                <option value="">Select arrival city</option>
+                {cities.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name} {c.state ? `(${c.state})` : ''}
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.destinationCityId && (
+                <p className="text-xs text-red-600 mt-1 font-medium">{fieldErrors.destinationCityId}</p>
+              )}
+            </div>
+          </div>
 
+          <p className="text-xs text-zinc-400">
+            Once created, you can assign fleet buses and departure schedules to this route corridor.
+          </p>
+
+          <div className="pt-4 border-t border-zinc-100 flex items-center justify-end gap-3">
+            <Link
+              to="/operator/routes"
+              className="px-4 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 hover:bg-zinc-50 text-xs font-semibold transition-colors"
+            >
+              Cancel
+            </Link>
             <button
               type="submit"
-              disabled={loading}
-              className="w-full h-12 rounded-xl bg-[#101F33] text-white font-medium transition-all hover:bg-[#1A2D47] active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              disabled={loading || citiesLoading}
+              className="px-6 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
             >
-              {loading ? (
-                <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              ) : (
-                'Create route'
-              )}
+              {loading ? 'Creating...' : 'Establish Route'}
             </button>
-          </form>
-        </div>
-      </main>
-    </div>
+          </div>
+        </form>
+      </div>
+    </OperatorLayout>
   );
 };
 

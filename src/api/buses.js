@@ -9,3 +9,11 @@ export const searchBuses = ({ from, to, date }) => {
 export const getSeats = (scheduleID) => {
   return api.get(`/buses/${scheduleID}/seats`);
 };
+
+export const getBusDetails = (scheduleID) => {
+  return api.get(`/buses/${scheduleID}`);
+};
+
+export const getCities = () => {
+  return api.get('/cities');
+};

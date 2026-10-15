@@ -22,6 +22,7 @@ import MyBuses from './pages/operator/MyBuses';
 import TicketDetails from './pages/TicketDetails';
 import MyRoutes from './pages/operator/MyRoutes';
 import MySchedules from './pages/operator/MySchedules';
+import Profile from './pages/Profile';
 
 
 
@@ -148,9 +149,9 @@ function App() {
                 <Route
                     path="/operator/routes"
                     element={
-                        <ProtectedRoute role="operator">
+                        <RoleProtectedRoute allowedRole="operator_admin">
                             <MyRoutes />
-                        </ProtectedRoute>
+                        </RoleProtectedRoute>
                     }
                 />
 
@@ -160,6 +161,15 @@ function App() {
                         <RoleProtectedRoute allowedRole="operator_admin">
                             <MySchedules />
                         </RoleProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/profile"
+                    element={
+                        <ProtectedRoute>
+                            <Profile />
+                        </ProtectedRoute>
                     }
                 />
             </Routes>

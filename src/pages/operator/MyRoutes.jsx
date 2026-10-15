@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Route, MapPin, ArrowRight, ArrowLeft } from 'lucide-react';
-import axios from 'axios';
+import { Route, MapPin, ArrowRight, Plus, CalendarDays } from 'lucide-react';
+import { getRoutes } from '../../api/operator';
+import OperatorLayout from '../../components/operator/OperatorLayout';
 
 const MyRoutes = () => {
   const [routes, setRoutes] = useState([]);
@@ -14,18 +15,8 @@ const MyRoutes = () => {
 
   const fetchRoutes = async () => {
     try {
-      const token = localStorage.getItem('token');
-
-      const res = await axios.get(
-        'http://localhost:8080/operator/routes',
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      setRoutes(res.data.data || []);
+      const res = await getRoutes();
+      setRoutes(res.data?.data || []);
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -38,83 +29,83 @@ const MyRoutes = () => {
   };
 
   return (
-    <div className="min-h-screen bg-stone-50 px-4 py-10">
-      <div className="max-w-5xl mx-auto">
+    <OperatorLayout
+      title="Route Network"
+      subtitle="Connected origin and destination city pairs"
+      action={
         <Link
-          to="/operator/dashboard"
-          className="flex items-center gap-2 text-[#101F33] mb-6"
+          to="/operator/create-route"
+          className="h-9 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
         >
-          <ArrowLeft size={18} />
-          Back to Dashboard
+          <Plus size={14} />
+          <span>Add Route</span>
         </Link>
-
-        <div className="flex items-center gap-3 mb-8">
-          <Route className="text-[#101F33]" />
-          <h1 className="text-3xl font-bold text-stone-900">
-            My Routes
-          </h1>
+      }
+    >
+      {loading ? (
+        <div className="py-20 text-center">
+          <div className="w-8 h-8 border-2 border-zinc-900 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-xs text-zinc-500 font-medium">Loading route network...</p>
         </div>
-
-        {loading && (
-          <p className="text-stone-500">Loading routes...</p>
-        )}
-
-        {error && (
-          <p className="text-red-600">{error}</p>
-        )}
-
-        {!loading && !error && routes.length === 0 && (
-          <p className="text-stone-500">
-            No routes found.
+      ) : error ? (
+        <div className="p-4 rounded-2xl bg-red-50 border border-red-200 text-xs text-red-700 font-medium">
+          {error}
+        </div>
+      ) : routes.length === 0 ? (
+        <div className="bg-white rounded-2xl border border-zinc-200 p-12 text-center">
+          <Route size={32} className="mx-auto text-zinc-300 mb-2" />
+          <h3 className="text-sm font-bold text-zinc-900">No Routes Established</h3>
+          <p className="text-xs text-zinc-400 mt-1 max-w-xs mx-auto">
+            Connect an origin and destination city to start scheduling passenger trips.
           </p>
-        )}
-
-        <div className="grid md:grid-cols-2 gap-6">
+          <Link
+            to="/operator/create-route"
+            className="inline-flex items-center gap-1.5 mt-4 px-4 py-2 rounded-xl bg-zinc-900 text-white text-xs font-semibold"
+          >
+            <Plus size={14} />
+            Create First Route
+          </Link>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {routes.map((route) => (
             <div
               key={route.id}
-              className="bg-white rounded-2xl border border-stone-200 p-6 shadow-sm"
+              className="bg-white rounded-2xl border border-zinc-200/80 p-5 hover:border-zinc-300 transition-all shadow-xs flex flex-col justify-between"
             >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center">
-                  <Route className="text-emerald-600" />
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-8 h-8 rounded-lg bg-zinc-100 flex items-center justify-center text-zinc-700">
+                    <Route size={15} />
+                  </div>
+                  <span className="text-[11px] font-mono text-zinc-400">ID: {route.id.slice(0, 8)}...</span>
                 </div>
 
-                <div>
-                  <h2 className="font-bold text-lg text-stone-900">
-                    {route.origin}
-                  </h2>
-
-                  <p className="text-sm text-stone-500">
-                    {route.destination}
-                  </p>
+                <div className="flex items-center gap-2 text-base font-bold text-zinc-900">
+                  <span>{route.origin}</span>
+                  <ArrowRight size={14} className="text-zinc-400" />
+                  <span>{route.destination}</span>
                 </div>
+                <p className="text-xs text-zinc-400 mt-1">Inter-city passenger corridor</p>
               </div>
 
-              <div className="space-y-2 text-sm">
-                <p className="flex items-center gap-2">
-                  <span className="font-medium">Route:</span>
-                  <span className="flex items-center gap-1 text-stone-500">
-                    <MapPin size={14} />
-                    {route.origin}
-                    <ArrowRight size={14} className="text-stone-400" />
-                    <MapPin size={14} />
-                    {route.destination}
-                  </span>
-                </p>
-
-                <p className="break-all text-stone-500">
-                  <span className="font-medium text-stone-700">
-                    Route ID:
-                  </span>{' '}
-                  {route.id}
-                </p>
+              <div className="mt-5 pt-3 border-t border-zinc-100 flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">
+                  Active
+                </span>
+                <Link
+                  to="/operator/create-schedule"
+                  className="text-xs font-semibold text-zinc-700 hover:text-zinc-900 flex items-center gap-1 group"
+                >
+                  <span>Schedule Trip</span>
+                  <ArrowRight size={12} className="group-hover:translate-x-0.5 transition-transform" />
+                </Link>
               </div>
             </div>
           ))}
         </div>
-      </div>
-    </div>
+      )}
+    </OperatorLayout>
   );
 };
 

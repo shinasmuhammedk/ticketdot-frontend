@@ -1,275 +1,185 @@
 import React, { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
-import {
-  ArrowLeft,
-  Bus,
-  CheckCircle2,
-  AlertCircle,
-  X,
-  Armchair,
-} from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Bus, Armchair, ArrowLeft, Check, Sparkles } from 'lucide-react';
 import { createBus } from '../../api/operator';
+import OperatorLayout from '../../components/operator/OperatorLayout';
+import Toast from '../Toast';
 
-const busTypes = [
-  { value: 'AC_SLEEPER', label: 'AC sleeper', rows: 'sleeper' },
-  { value: 'NON_AC_SLEEPER', label: 'Non-AC sleeper', rows: 'sleeper' },
-  { value: 'AC_SEATER', label: 'AC seater', rows: 'seater' },
-  { value: 'NON_AC_SEATER', label: 'Non-AC seater', rows: 'seater' },
+const BUS_TYPES = [
+  { value: 'AC_SLEEPER', label: 'AC Sleeper', category: 'sleeper', desc: 'Air-conditioned berths for overnight routes' },
+  { value: 'NON_AC_SLEEPER', label: 'Non-AC Sleeper', category: 'sleeper', desc: 'Standard sleeper berths' },
+  { value: 'AC_SEATER', label: 'AC Seater', category: 'seater', desc: '2x2 pushback seating with climate control' },
+  { value: 'NON_AC_SEATER', label: 'Non-AC Seater', category: 'seater', desc: 'Standard commuter seating' },
 ];
 
-const REG_NO_PATTERN = /^[A-Z]{2}-\d{1,2}-[A-Z]{1,2}-\d{4}$/;
-
 const CreateBus = () => {
+  const navigate = useNavigate();
   const [registrationNo, setRegistrationNo] = useState('');
   const [busType, setBusType] = useState('AC_SLEEPER');
-  const [totalSeats, setTotalSeats] = useState(40);
+  const [totalSeats, setTotalSeats] = useState(36);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState({});
-
-  const selectedType = busTypes.find((t) => t.value === busType);
+  const [toastMessage, setToastMessage] = useState('');
 
   const validate = () => {
     const next = {};
     if (!registrationNo.trim()) {
-      next.registrationNo = 'Registration number is required';
-    } else if (!REG_NO_PATTERN.test(registrationNo.trim().toUpperCase())) {
-      next.registrationNo = 'Use the format KL-10-AV-6577';
+      next.registrationNo = 'Vehicle registration number is required (e.g. MH-12-AB-1234)';
     }
     const seats = Number(totalSeats);
     if (!totalSeats || seats < 1) {
-      next.totalSeats = 'Enter a seat count of at least 1';
+      next.totalSeats = 'Seat count must be at least 1';
     } else if (seats > 60) {
-      next.totalSeats = 'Seat count looks too high, double check';
+      next.totalSeats = 'Seat count cannot exceed 60';
     }
     return next;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const validationErrors = validate();
-    setFieldErrors(validationErrors);
-    setMessage('');
-    setError('');
-    if (Object.keys(validationErrors).length > 0) return;
+    const errors = validate();
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
 
     setLoading(true);
     try {
+      const reg = registrationNo.trim().toUpperCase();
       await createBus({
-        registration_no: registrationNo.trim().toUpperCase(),
+        registration_no: reg,
         bus_type: busType,
         total_seats: Number(totalSeats),
       });
 
-      setMessage(`Bus ${registrationNo.trim().toUpperCase()} added to your fleet`);
-      setRegistrationNo('');
-      setBusType('AC_SLEEPER');
-      setTotalSeats(40);
-      setFieldErrors({});
+      setToastMessage(`Bus ${reg} successfully registered.`);
+      setTimeout(() => navigate('/operator/buses'), 1000);
     } catch (err) {
-      setError(
-        err.response?.data?.message || err.response?.data?.error || 'Failed to create bus'
-      );
+      setToastMessage(err.response?.data?.message || 'Failed to register bus');
     } finally {
       setLoading(false);
     }
   };
 
-  // Simple visual seat-layout preview, 2+2 seater or 2+1 sleeper berths
-  const seatPreview = useMemo(() => {
-    const seats = Math.max(0, Math.min(60, Number(totalSeats) || 0));
-    const isSleeper = selectedType?.rows === 'sleeper';
-    const perRow = isSleeper ? 3 : 4;
-    const rowCount = Math.ceil(seats / perRow);
-    const rows = [];
-    let remaining = seats;
-    for (let r = 0; r < rowCount; r++) {
-      const inRow = Math.min(perRow, remaining);
-      rows.push(inRow);
-      remaining -= inRow;
-    }
-    return { rows, isSleeper };
-  }, [totalSeats, selectedType]);
-
   return (
-    <div className="min-h-screen bg-slate-50">
-      <header className="bg-white border-b border-stone-200 h-16 flex items-center px-6 lg:px-8">
+    <OperatorLayout
+      title="Register Vehicle"
+      subtitle="Add a new bus to your fleet operations"
+      action={
         <Link
-          to="/operator/dashboard"
-          className="flex items-center gap-2 text-[13.5px] font-medium text-stone-500 hover:text-stone-800 transition-colors"
+          to="/operator/buses"
+          className="h-9 px-3.5 rounded-xl border border-zinc-200 text-zinc-700 hover:bg-zinc-100 text-xs font-semibold flex items-center gap-1.5 transition-colors"
         >
-          <ArrowLeft size={16} />
-          Operator dashboard
+          <ArrowLeft size={14} />
+          <span>Fleet List</span>
         </Link>
-      </header>
+      }
+    >
+      {toastMessage && (
+        <Toast
+          message={toastMessage}
+          onClose={() => setToastMessage('')}
+        />
+      )}
 
-      <main className="max-w-3xl mx-auto px-6 py-10">
-        <div className="flex items-center gap-3 mb-1">
-          <div className="w-9 h-9 rounded-lg bg-[#101F33] flex items-center justify-center">
-            <Bus size={18} className="text-white" />
+      <div className="max-w-2xl bg-white rounded-3xl border border-zinc-200/80 p-6 sm:p-8 shadow-xs">
+        <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Registration Number */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">
+              Registration Number
+            </label>
+            <input
+              type="text"
+              placeholder="e.g. MH-12-AB-9999"
+              value={registrationNo}
+              onChange={(e) => {
+                setRegistrationNo(e.target.value.toUpperCase());
+                if (fieldErrors.registrationNo) setFieldErrors((p) => ({ ...p, registrationNo: undefined }));
+              }}
+              className="w-full h-11 px-4 rounded-xl border border-zinc-200 font-mono font-bold text-sm text-zinc-900 bg-zinc-50/50 focus:bg-white focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/5 outline-none transition-all placeholder:text-zinc-400 placeholder:font-normal uppercase"
+            />
+            {fieldErrors.registrationNo && (
+              <p className="text-xs text-red-600 mt-1.5 font-medium">{fieldErrors.registrationNo}</p>
+            )}
           </div>
-          <h1 className="text-2xl font-semibold text-stone-900">Add a bus</h1>
-        </div>
-        <p className="text-stone-500 text-[15px] ml-12">
-          Register a new vehicle and define its seating layout.
-        </p>
 
-        {message && (
-          <div className="mt-6 flex items-start gap-3 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3.5">
-            <CheckCircle2 size={18} className="text-emerald-600 mt-0.5 shrink-0" />
-            <p className="text-[14px] text-emerald-800 flex-1">{message}</p>
-            <button onClick={() => setMessage('')} aria-label="Dismiss">
-              <X size={16} className="text-emerald-600" />
-            </button>
-          </div>
-        )}
-        {error && (
-          <div className="mt-6 flex items-start gap-3 bg-red-50 border border-red-200 rounded-xl px-4 py-3.5">
-            <AlertCircle size={18} className="text-red-600 mt-0.5 shrink-0" />
-            <p className="text-[14px] text-red-700 flex-1">{error}</p>
-            <button onClick={() => setError('')} aria-label="Dismiss">
-              <X size={16} className="text-red-600" />
-            </button>
-          </div>
-        )}
-
-        <div className="mt-7 grid grid-cols-1 md:grid-cols-[1fr_280px] gap-6">
-          {/* Form */}
-          <div className="bg-white rounded-2xl border border-stone-200 p-6">
-            <form onSubmit={handleSubmit} noValidate className="space-y-5">
-              <div>
-                <label htmlFor="reg" className="block text-sm font-medium text-stone-700 mb-1.5">
-                  Registration number
-                </label>
-                <input
-                  id="reg"
-                  type="text"
-                  placeholder="KL-10-AV-6577"
-                  value={registrationNo}
-                  onChange={(e) => {
-                    setRegistrationNo(e.target.value);
-                    if (fieldErrors.registrationNo)
-                      setFieldErrors((p) => ({ ...p, registrationNo: undefined }));
-                  }}
-                  aria-invalid={Boolean(fieldErrors.registrationNo)}
-                  className={`w-full h-12 px-4 rounded-xl border bg-white text-[15px] uppercase placeholder:normal-case placeholder:text-stone-400 outline-none transition-colors font-mono tracking-wide
-                    ${fieldErrors.registrationNo
-                      ? 'border-red-300 focus:border-red-400 focus:ring-4 focus:ring-red-50'
-                      : 'border-stone-200 focus:border-[#101F33] focus:ring-4 focus:ring-[#101F33]/5'
+          {/* Bus Type Options */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-2">
+              Vehicle Type & Layout
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              {BUS_TYPES.map((type) => {
+                const selected = busType === type.value;
+                return (
+                  <button
+                    key={type.value}
+                    type="button"
+                    onClick={() => setBusType(type.value)}
+                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
+                      selected
+                        ? 'border-zinc-900 bg-zinc-900 text-white shadow-xs'
+                        : 'border-zinc-200 bg-white text-zinc-800 hover:border-zinc-300'
                     }`}
-                />
-                {fieldErrors.registrationNo ? (
-                  <p className="mt-1.5 text-sm text-red-500">{fieldErrors.registrationNo}</p>
-                ) : (
-                  <p className="mt-1.5 text-[13px] text-stone-400">Format: state-RTO-series-number</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-stone-700 mb-2">Bus type</label>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {busTypes.map((type) => (
-                    <button
-                      key={type.value}
-                      type="button"
-                      onClick={() => setBusType(type.value)}
-                      className={`h-11 rounded-xl border text-[13.5px] font-medium transition-colors
-                        ${busType === type.value
-                          ? 'border-[#101F33] bg-[#101F33] text-white'
-                          : 'border-stone-200 bg-white text-stone-600 hover:border-stone-300'
-                        }`}
-                    >
-                      {type.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="seats" className="block text-sm font-medium text-stone-700 mb-1.5">
-                  Total seats
-                </label>
-                <input
-                  id="seats"
-                  type="number"
-                  min="1"
-                  max="60"
-                  placeholder="40"
-                  value={totalSeats}
-                  onChange={(e) => {
-                    setTotalSeats(e.target.value);
-                    if (fieldErrors.totalSeats)
-                      setFieldErrors((p) => ({ ...p, totalSeats: undefined }));
-                  }}
-                  aria-invalid={Boolean(fieldErrors.totalSeats)}
-                  className={`w-full h-12 px-4 rounded-xl border bg-white text-[15px] outline-none transition-colors
-                    ${fieldErrors.totalSeats
-                      ? 'border-red-300 focus:border-red-400 focus:ring-4 focus:ring-red-50'
-                      : 'border-stone-200 focus:border-[#101F33] focus:ring-4 focus:ring-[#101F33]/5'
-                    }`}
-                />
-                {fieldErrors.totalSeats && (
-                  <p className="mt-1.5 text-sm text-red-500">{fieldErrors.totalSeats}</p>
-                )}
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="w-full h-12 rounded-xl bg-[#101F33] text-white font-medium transition-all hover:bg-[#1A2D47] active:scale-[0.99] disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {loading ? (
-                  <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                ) : (
-                  'Add bus to fleet'
-                )}
-              </button>
-            </form>
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold">{type.label}</span>
+                      {selected && <Check size={14} className="text-white" />}
+                    </div>
+                    <p className={`text-[11px] mt-1 leading-snug ${selected ? 'text-zinc-300' : 'text-zinc-400'}`}>
+                      {type.desc}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
-          {/* Live seat preview */}
-          <div className="bg-white rounded-2xl border border-stone-200 p-5 h-fit">
-            <div className="flex items-center gap-2 mb-1">
-              <Armchair size={15} className="text-stone-400" />
-              <span className="text-[13px] font-medium text-stone-500">Layout preview</span>
+          {/* Total Seating Capacity */}
+          <div>
+            <label className="block text-xs font-bold uppercase tracking-wider text-zinc-500 mb-1.5">
+              Seating Capacity (Seats)
+            </label>
+            <div className="relative">
+              <Armchair size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-zinc-400" />
+              <input
+                type="number"
+                min="10"
+                max="60"
+                value={totalSeats}
+                onChange={(e) => {
+                  setTotalSeats(e.target.value);
+                  if (fieldErrors.totalSeats) setFieldErrors((p) => ({ ...p, totalSeats: undefined }));
+                }}
+                className="w-full h-11 pl-10 pr-4 rounded-xl border border-zinc-200 font-bold text-sm text-zinc-900 bg-zinc-50/50 focus:bg-white focus:border-zinc-900 focus:ring-2 focus:ring-zinc-900/5 outline-none transition-all"
+              />
             </div>
-            <p className="text-[22px] font-semibold text-stone-900 font-mono mb-4">
-              {Math.max(0, Math.min(60, Number(totalSeats) || 0))}
-              <span className="text-[13px] font-normal text-stone-400 font-sans ml-1.5">
-                seats
-              </span>
-            </p>
-
-            <div className="bg-slate-50 rounded-xl p-4 space-y-1.5">
-              {seatPreview.rows.length === 0 && (
-                <p className="text-[13px] text-stone-400 text-center py-6">
-                  Enter a seat count to preview the layout
-                </p>
-              )}
-              {seatPreview.rows.map((inRow, i) => (
-                <div key={i} className="flex items-center justify-center gap-1.5">
-                  {Array.from({ length: inRow }).map((_, j) => {
-                    const aisleAfter = seatPreview.isSleeper ? 1 : 1;
-                    return (
-                      <React.Fragment key={j}>
-                        <div
-                          className={`w-5 ${seatPreview.isSleeper ? 'h-3.5' : 'h-5'} rounded-[3px] bg-[#101F33]/15`}
-                        />
-                        {j === aisleAfter - 1 && <div className="w-2.5" />}
-                      </React.Fragment>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-            <p className="mt-3 text-[12px] text-stone-400 leading-relaxed">
-              Approximate layout based on bus type. Exact seat map is configured after creation.
+            {fieldErrors.totalSeats && (
+              <p className="text-xs text-red-600 mt-1.5 font-medium">{fieldErrors.totalSeats}</p>
+            )}
+            <p className="text-[11px] text-zinc-400 mt-1.5">
+              Physical seat layout records (<span className="font-mono font-semibold">seat_layouts</span>) will be automatically initialized for this bus.
             </p>
           </div>
-        </div>
-      </main>
-    </div>
+
+          {/* Form Actions */}
+          <div className="pt-4 border-t border-zinc-100 flex items-center justify-end gap-3">
+            <Link
+              to="/operator/buses"
+              className="px-4 py-2.5 rounded-xl border border-zinc-200 text-zinc-600 hover:bg-zinc-50 text-xs font-semibold transition-colors"
+            >
+              Cancel
+            </Link>
+            <button
+              type="submit"
+              disabled={loading}
+              className="px-6 py-2.5 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-bold transition-all shadow-xs disabled:opacity-50 cursor-pointer"
+            >
+              {loading ? 'Registering Bus...' : 'Save & Initialize Layout'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </OperatorLayout>
   );
 };
 
