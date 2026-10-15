@@ -1,32 +1,39 @@
-import { Bus, User, RefreshCw } from "lucide-react";
+import React from "react";
+import { User, RotateCw, ArrowLeft } from "lucide-react";
+import { Link } from "react-router-dom";
+import Navbar from "../Navbar";
 
 const ErrorState = ({ onRetry }) => (
-  <div className="min-h-screen bg-white text-gray-900">
-    <header className="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center">
-            <Bus size={18} className="text-white" strokeWidth={1.5} />
-          </div>
-          <span className="text-lg font-semibold text-gray-900 hidden sm:block">TicketDot</span>
+  <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
+    <Navbar />
+
+    <main className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-16 flex-1 w-full flex items-center justify-center">
+      <div className="rounded-3xl border border-slate-200 bg-white shadow-xl p-8 sm:p-10 flex flex-col items-center text-center max-w-sm w-full animate-in fade-in">
+        <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mb-4">
+          <User size={24} />
         </div>
-      </div>
-    </header>
-    <main className="max-w-6xl mx-auto px-4 sm:px-6 py-8">
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <div className="rounded-2xl border border-gray-100 bg-white shadow-sm p-10 flex flex-col items-center text-center max-w-sm">
-          <div className="w-12 h-12 rounded-2xl bg-gray-50 flex items-center justify-center mb-4">
-            <User size={22} className="text-gray-400" strokeWidth={1.5} />
-          </div>
-          <p className="text-base font-semibold text-gray-900">Unable to load profile</p>
-          <p className="text-sm text-gray-400 mt-1 mb-5">Something went wrong while fetching your profile data.</p>
+        <h3 className="text-lg font-bold text-slate-900">Unable to Load Profile</h3>
+        <p className="text-xs text-slate-500 mt-1 mb-6 leading-relaxed">
+          We encountered an issue fetching your profile credentials. Please verify your connection and try again.
+        </p>
+
+        <div className="space-y-2 w-full">
           <button
+            type="button"
             onClick={onRetry}
-            className="h-10 px-5 rounded-xl bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+            className="w-full h-11 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-sm"
           >
-            <RefreshCw size={15} strokeWidth={1.5} />
-            Retry
+            <RotateCw size={14} />
+            <span>Try Again</span>
           </button>
+
+          <Link
+            to="/dashboard"
+            className="w-full h-10 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors flex items-center justify-center gap-1.5"
+          >
+            <ArrowLeft size={14} />
+            <span>Back to Dashboard</span>
+          </Link>
         </div>
       </div>
     </main>

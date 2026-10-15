@@ -201,9 +201,9 @@ const Login = () => {
                                     <label htmlFor="password" className="block text-sm font-medium text-stone-700">
                                         Password
                                     </label>
-                                    <a href="#" className="text-sm font-medium text-[#101F33] hover:text-[#E8A33D] transition-colors">
+                                    <Link to="/forgot-password" className="text-sm font-medium text-[#101F33] hover:text-[#E8A33D] transition-colors">
                                         Forgot password?
-                                    </a>
+                                    </Link>
                                 </div>
                                 <div className="relative">
                                     <Lock

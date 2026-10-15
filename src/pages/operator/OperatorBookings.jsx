@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { getOperatorBookings } from '../../api/operator';
 import OperatorLayout from '../../components/operator/OperatorLayout';
+import BusOccupancyModal from '../../components/operator/BusOccupancyModal';
 
 const OperatorBookings = () => {
   const [bookings, setBookings] = useState([]);
@@ -12,6 +13,7 @@ const OperatorBookings = () => {
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [activeSchedule, setActiveSchedule] = useState(null);
 
   useEffect(() => {
     const loadBookings = async () => {
@@ -31,6 +33,9 @@ const OperatorBookings = () => {
     () =>
       bookings.map((b) => ({
         bookingRef: b.booking_ref || b.id,
+        scheduleId: b.schedule_id,
+        origin: b.origin,
+        destination: b.destination,
         passenger: b.passenger_name || 'Passenger',
         email: b.passenger_email || '',
         phone: b.passenger_phone || '',
@@ -136,7 +141,8 @@ const OperatorBookings = () => {
                     <th className="py-3.5 px-4">Route & Vehicle</th>
                     <th className="py-3.5 px-4">Seats</th>
                     <th className="py-3.5 px-4">Fare</th>
-                    <th className="py-3.5 px-5 text-right">Status</th>
+                    <th className="py-3.5 px-4">Status</th>
+                    <th className="py-3.5 px-5 text-right">Cabin Map</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-zinc-100 text-xs text-zinc-700">
@@ -166,7 +172,7 @@ const OperatorBookings = () => {
                         <td className="py-3.5 px-4 font-bold text-zinc-900">
                           ₹{Number(b.fare).toLocaleString('en-IN')}
                         </td>
-                        <td className="py-3.5 px-5 text-right">
+                        <td className="py-3.5 px-4">
                           <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
                             isConfirmed
                               ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
@@ -175,6 +181,27 @@ const OperatorBookings = () => {
                             <span className={`w-1.5 h-1.5 rounded-full ${isConfirmed ? 'bg-emerald-500' : 'bg-rose-500'}`} />
                             <span className="capitalize">{b.status}</span>
                           </span>
+                        </td>
+                        <td className="py-3.5 px-5 text-right">
+                          {b.scheduleId ? (
+                            <button
+                              type="button"
+                              onClick={() => setActiveSchedule({
+                                id: b.scheduleId,
+                                origin: b.origin,
+                                destination: b.destination,
+                                bus_number: b.busNumber,
+                                base_fare: b.fare,
+                              })}
+                              className="h-7 px-2.5 rounded-lg bg-zinc-100 hover:bg-zinc-900 hover:text-white text-zinc-700 text-[11px] font-semibold transition-all inline-flex items-center gap-1 cursor-pointer shadow-2xs"
+                              title="Inspect cabin seat map"
+                            >
+                              <Armchair size={12} />
+                              <span>View Map</span>
+                            </button>
+                          ) : (
+                            <span className="text-zinc-300 text-[11px]">—</span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -185,6 +212,13 @@ const OperatorBookings = () => {
           )}
         </div>
       </div>
+
+      {/* Live Bus Occupancy Modal */}
+      <BusOccupancyModal
+        isOpen={Boolean(activeSchedule)}
+        onClose={() => setActiveSchedule(null)}
+        schedule={activeSchedule}
+      />
     </OperatorLayout>
   );
 };

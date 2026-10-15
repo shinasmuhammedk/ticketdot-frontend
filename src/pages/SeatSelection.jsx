@@ -4,12 +4,14 @@ import { getSeats } from '../api/seats';
 import { getBusDetails } from '../api/buses';
 import {
   ArrowLeft, Bus, Clock, Armchair, Lock, CheckCircle2,
-  ChevronRight, AlertCircle, Timer, ShieldCheck, RotateCcw
+  ChevronRight, AlertCircle, Timer, ShieldCheck, RotateCcw,
+  MapPin, CreditCard
 } from 'lucide-react';
 import SeatMap from '../components/SeatMap';
 import { lockSeat, confirmBooking, releaseSeats } from '../api/bookings';
 import Toast from './Toast';
 import Navbar from '../components/Navbar';
+import PaymentModal from '../components/PaymentModal';
 
 const SeatSelection = () => {
   const [searchParams] = useSearchParams();
@@ -29,6 +31,10 @@ const SeatSelection = () => {
   const [lockExpires, setLockExpires] = useState(null);
   const [countdown, setCountdown] = useState(0);
   const [actionLoading, setActionLoading] = useState(false);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+
+  const [boardingPoint, setBoardingPoint] = useState('');
+  const [droppingPoint, setDroppingPoint] = useState('');
 
   const userLockedSeatsRef = useRef(userLockedSeats);
   const scheduleIdRef = useRef(scheduleId);
@@ -82,7 +88,10 @@ const SeatSelection = () => {
         ]);
 
         if (tripRes.status === 'fulfilled' && tripRes.value.data?.data) {
-          setTrip(tripRes.value.data.data);
+          const t = tripRes.value.data.data;
+          setTrip(t);
+          setBoardingPoint(`${t.origin} Central Bus Station`);
+          setDroppingPoint(`${t.destination} Main Terminal`);
         }
 
         if (seatsRes.status === 'fulfilled' && seatsRes.value.data?.data) {
@@ -233,6 +242,12 @@ const SeatSelection = () => {
       const res = await confirmBooking(scheduleId, userLockedSeats);
       bookingConfirmedRef.current = true;
       const bookingRef = res.data?.data?.booking_ref;
+      if (bookingRef) {
+        localStorage.setItem(`ticket_points_${bookingRef}`, JSON.stringify({
+          boarding: boardingPoint,
+          dropping: droppingPoint,
+        }));
+      }
       navigate(`/booking-success?ref=${bookingRef}`);
     } catch (err) {
       const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to confirm booking';
@@ -393,6 +408,53 @@ const SeatSelection = () => {
                   )}
                 </div>
 
+                {/* Boarding & Dropping Points Selector */}
+                <div className="pt-4 border-t border-slate-100 space-y-3">
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5 flex items-center gap-1.5">
+                      <MapPin size={12} className="text-indigo-600" />
+                      <span>Boarding Point</span>
+                    </label>
+                    <select
+                      value={boardingPoint}
+                      onChange={(e) => setBoardingPoint(e.target.value)}
+                      className="w-full h-9 px-3 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-slate-50 focus:bg-white focus:border-indigo-600 outline-none transition-colors"
+                    >
+                      <option value={`${trip?.origin || 'Origin'} Central Bus Station`}>
+                        {trip?.origin || 'Origin'} Central Bus Station (Main Gate)
+                      </option>
+                      <option value={`${trip?.origin || 'Origin'} Highway Junction`}>
+                        {trip?.origin || 'Origin'} Highway Junction (Toll Plaza)
+                      </option>
+                      <option value={`${trip?.origin || 'Origin'} Airport Bypass`}>
+                        {trip?.origin || 'Origin'} Airport Bypass Circle
+                      </option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1.5 flex items-center gap-1.5">
+                      <MapPin size={12} className="text-emerald-600" />
+                      <span>Dropping Point</span>
+                    </label>
+                    <select
+                      value={droppingPoint}
+                      onChange={(e) => setDroppingPoint(e.target.value)}
+                      className="w-full h-9 px-3 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-slate-50 focus:bg-white focus:border-indigo-600 outline-none transition-colors"
+                    >
+                      <option value={`${trip?.destination || 'Destination'} Main Terminal`}>
+                        {trip?.destination || 'Destination'} Main Terminal (Platform 1)
+                      </option>
+                      <option value={`${trip?.destination || 'Destination'} City Center Ring`}>
+                        {trip?.destination || 'Destination'} City Center Ring Road
+                      </option>
+                      <option value={`${trip?.destination || 'Destination'} Suburb Express Stop`}>
+                        {trip?.destination || 'Destination'} Suburb Express Stop
+                      </option>
+                    </select>
+                  </div>
+                </div>
+
                 {/* Pricing Breakdown */}
                 <div className="pt-4 border-t border-slate-100 space-y-2">
                   <div className="flex justify-between text-xs text-slate-500">
@@ -427,13 +489,13 @@ const SeatSelection = () => {
                 ) : (
                   <>
                     <button
-                      onClick={handleConfirmBooking}
+                      onClick={() => setShowPaymentModal(true)}
                       disabled={actionLoading}
                       type="button"
                       className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 active:scale-98 transition-all cursor-pointer"
                     >
-                      <CheckCircle2 size={16} />
-                      {actionLoading ? 'Confirming...' : `Confirm Booking (Pay ₹${totalFare})`}
+                      <CreditCard size={16} />
+                      {actionLoading ? 'Confirming...' : `Proceed to Payment (₹${totalFare})`}
                     </button>
 
                     <button
@@ -459,6 +521,17 @@ const SeatSelection = () => {
 
         </div>
       </main>
+
+      {/* Payment Gateway Modal */}
+      <PaymentModal
+        isOpen={showPaymentModal}
+        onClose={() => setShowPaymentModal(false)}
+        trip={trip}
+        seats={activeSeats}
+        fare={fare}
+        totalAmount={totalFare}
+        onPaymentSuccess={handleConfirmBooking}
+      />
     </div>
   );
 };

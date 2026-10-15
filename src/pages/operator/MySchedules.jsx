@@ -2,15 +2,17 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   CalendarDays, Clock, Bus, MapPin, IndianRupee,
-  Users, Plus, ArrowRight
+  Users, Plus, ArrowRight, Armchair
 } from 'lucide-react';
 import { getSchedules } from '../../api/operator';
 import OperatorLayout from '../../components/operator/OperatorLayout';
+import BusOccupancyModal from '../../components/operator/BusOccupancyModal';
 
 const MySchedules = () => {
   const [schedules, setSchedules] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [activeSchedule, setActiveSchedule] = useState(null);
 
   useEffect(() => {
     fetchSchedules();
@@ -132,12 +134,30 @@ const MySchedules = () => {
                     <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-0.5">Fare</span>
                     <span className="text-lg font-black text-zinc-900">₹{schedule.base_fare}</span>
                   </div>
+
+                  <div className="pl-2">
+                    <button
+                      type="button"
+                      onClick={() => setActiveSchedule(schedule)}
+                      className="h-8 px-3 rounded-xl bg-zinc-100 hover:bg-zinc-900 hover:text-white text-zinc-800 text-xs font-bold flex items-center gap-1.5 transition-all shadow-2xs cursor-pointer"
+                    >
+                      <Armchair size={13} />
+                      <span>Live Seats</span>
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Live Bus Occupancy Modal */}
+      <BusOccupancyModal
+        isOpen={Boolean(activeSchedule)}
+        onClose={() => setActiveSchedule(null)}
+        schedule={activeSchedule}
+      />
     </OperatorLayout>
   );
 };

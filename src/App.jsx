@@ -6,6 +6,8 @@ import RoleProtectedRoute from './components/RoleProtectedRoute';
 
 import Login from './pages/Login';
 import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
+import ResetPassword from './pages/ResetPassword';
 import Dashboard from './pages/Dashboard';
 import SearchResults from './pages/SearchResults';
 import SeatSelection from './pages/SeatSelection';
@@ -35,6 +37,8 @@ function App() {
                 {/* Public Routes */}
                 <Route path="/login" element={<Login />} />
                 <Route path="/signup" element={<Signup />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
 
                 {/* Passenger Routes */}
                 <Route
