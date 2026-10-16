@@ -1,14 +1,16 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import {
   Bus, Route, CalendarDays, Ticket, Users, IndianRupee,
-  Plus, ArrowRight, ShieldCheck, TrendingUp
+  Plus, ArrowRight, TrendingUp, RefreshCw, BarChart2,
+  Percent, ArrowUpRight
 } from 'lucide-react';
-import { getDashboardStats } from '../../api/operator';
+import { getDashboardStats, getAnalytics } from '../../api/operator';
 import OperatorLayout from '../../components/operator/OperatorLayout';
+import RevenueTimelineChart from '../../components/operator/RevenueTimelineChart';
+import RouteFleetAnalytics from '../../components/operator/RouteFleetAnalytics';
 
 const OperatorDashboard = () => {
-  const navigate = useNavigate();
   const [statsData, setStatsData] = useState({
     total_buses: 0,
     total_routes: 0,
@@ -16,57 +18,99 @@ const OperatorDashboard = () => {
     total_bookings: 0,
     total_revenue: 0,
   });
-  const [loading, setLoading] = useState(true);
+  const [analyticsData, setAnalyticsData] = useState({
+    period_days: 7,
+    total_revenue: 0,
+    total_tickets_sold: 0,
+    average_ticket_price: 0,
+    daily_revenue: [],
+    route_occupancy: [],
+    bus_utilization: [],
+  });
+  const [period, setPeriod] = useState('7d');
+  const [loadingStats, setLoadingStats] = useState(true);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const res = await getDashboardStats();
-        if (res.data?.data) {
-          setStatsData(res.data.data);
-        }
-      } catch (err) {
-        console.error('Failed to load dashboard stats:', err);
-      } finally {
-        setLoading(false);
+  // Fetch overall stats
+  const fetchStats = useCallback(async () => {
+    try {
+      const res = await getDashboardStats();
+      if (res.data?.data) {
+        setStatsData(res.data.data);
       }
-    };
-    fetchStats();
+    } catch (err) {
+      console.error('Failed to load dashboard stats:', err);
+    } finally {
+      setLoadingStats(false);
+    }
   }, []);
 
-  const stats = [
+  // Fetch analytics for period
+  const fetchAnalyticsData = useCallback(async (selectedPeriod) => {
+    setLoadingAnalytics(true);
+    try {
+      const res = await getAnalytics(selectedPeriod);
+      if (res.data?.data) {
+        setAnalyticsData(res.data.data);
+      }
+    } catch (err) {
+      console.error('Failed to load analytics:', err);
+    } finally {
+      setLoadingAnalytics(false);
+    }
+  }, []);
+
+  // Initial load
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
+  // Load analytics when period changes
+  useEffect(() => {
+    fetchAnalyticsData(period);
+  }, [period, fetchAnalyticsData]);
+
+  // Manual refresh
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    await Promise.all([fetchStats(), fetchAnalyticsData(period)]);
+    setIsRefreshing(false);
+  };
+
+  const topKPIs = [
     {
       label: 'Active Buses',
-      value: loading ? '—' : String(statsData.total_buses),
+      value: loadingStats ? '—' : String(statsData.total_buses),
       desc: 'Fleet vehicles',
       icon: Bus,
       path: '/operator/buses',
     },
     {
       label: 'Active Routes',
-      value: loading ? '—' : String(statsData.total_routes),
-      desc: 'Connected city pairs',
+      value: loadingStats ? '—' : String(statsData.total_routes),
+      desc: 'City corridors',
       icon: Route,
       path: '/operator/routes',
     },
     {
       label: 'Trip Schedules',
-      value: loading ? '—' : String(statsData.total_schedules),
-      desc: 'Scheduled departures',
+      value: loadingStats ? '—' : String(statsData.total_schedules),
+      desc: 'Departures logged',
       icon: CalendarDays,
       path: '/operator/schedules',
     },
     {
-      label: 'Passenger Bookings',
-      value: loading ? '—' : String(statsData.total_bookings),
-      desc: 'Total reserved seats',
+      label: 'Total Bookings',
+      value: loadingStats ? '—' : String(statsData.total_bookings),
+      desc: 'Passenger reservations',
       icon: Users,
       path: '/operator/bookings',
     },
     {
-      label: 'Gross Revenue',
-      value: loading ? '—' : `₹${Number(statsData.total_revenue || 0).toLocaleString('en-IN')}`,
-      desc: 'Total earnings',
+      label: 'Lifetime Revenue',
+      value: loadingStats ? '—' : `₹${Number(statsData.total_revenue || 0).toLocaleString('en-IN')}`,
+      desc: 'All-time gross earnings',
       icon: IndianRupee,
       path: '/operator/bookings',
     },
@@ -104,19 +148,32 @@ const OperatorDashboard = () => {
       title="Fleet Overview"
       subtitle="Real-time telemetry and schedule performance"
       action={
-        <Link
-          to="/operator/create-schedule"
-          className="h-9 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
-        >
-          <Plus size={14} />
-          <span>New Schedule</span>
-        </Link>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="h-9 px-3 rounded-xl border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-700 text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-2xs disabled:opacity-50"
+            title="Refresh dashboard data"
+          >
+            <RefreshCw size={13} className={isRefreshing ? 'animate-spin' : ''} />
+            <span className="hidden sm:inline">Refresh</span>
+          </button>
+
+          <Link
+            to="/operator/create-schedule"
+            className="h-9 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-800 text-white text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-xs"
+          >
+            <Plus size={14} />
+            <span>New Schedule</span>
+          </Link>
+        </div>
       }
     >
       <div className="space-y-8">
-        {/* Minimalist KPI Grid */}
+        {/* Minimalist Top KPI Grid */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
-          {stats.map((s) => {
+          {topKPIs.map((s) => {
             const Icon = s.icon;
             return (
               <Link
@@ -135,6 +192,106 @@ const OperatorDashboard = () => {
               </Link>
             );
           })}
+        </div>
+
+        {/* Analytics Section Header & Period Switcher */}
+        <div className="space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <BarChart2 size={16} className="text-zinc-700" />
+                <h2 className="text-sm font-bold uppercase tracking-wider text-zinc-900">
+                  Revenue Intelligence & Occupancy
+                </h2>
+              </div>
+              <p className="text-xs text-zinc-500 mt-0.5">
+                Financial performance, ticket yields, and seat fill-rates for the chosen period
+              </p>
+            </div>
+
+            {/* 7D vs 30D Period Switcher */}
+            <div className="flex items-center gap-1 p-1 bg-zinc-100 rounded-xl self-start sm:self-auto border border-zinc-200/60">
+              <button
+                type="button"
+                onClick={() => setPeriod('7d')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  period === '7d'
+                    ? 'bg-white text-zinc-900 shadow-xs'
+                    : 'text-zinc-500 hover:text-zinc-900'
+                }`}
+              >
+                Last 7 Days
+              </button>
+              <button
+                type="button"
+                onClick={() => setPeriod('30d')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                  period === '30d'
+                    ? 'bg-white text-zinc-900 shadow-xs'
+                    : 'text-zinc-500 hover:text-zinc-900'
+                }`}
+              >
+                Last 30 Days
+              </button>
+            </div>
+          </div>
+
+          {/* Period Summary Metric Cards */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200/80 shadow-2xs">
+              <div className="flex items-center justify-between text-zinc-400 mb-1.5">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                  Period Revenue ({period === '7d' ? '7D' : '30D'})
+                </span>
+                <IndianRupee size={15} className="text-zinc-500" />
+              </div>
+              <p className="text-2xl font-bold tracking-tight text-zinc-900">
+                {loadingAnalytics ? '—' : `₹${Number(analyticsData.total_revenue || 0).toLocaleString('en-IN')}`}
+              </p>
+              <p className="text-[11px] text-zinc-400 mt-1 font-medium">
+                Confirmed bookings revenue
+              </p>
+            </div>
+
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200/80 shadow-2xs">
+              <div className="flex items-center justify-between text-zinc-400 mb-1.5">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                  Tickets Sold ({period === '7d' ? '7D' : '30D'})
+                </span>
+                <Ticket size={15} className="text-zinc-500" />
+              </div>
+              <p className="text-2xl font-bold tracking-tight text-zinc-900">
+                {loadingAnalytics ? '—' : analyticsData.total_tickets_sold}
+              </p>
+              <p className="text-[11px] text-zinc-400 mt-1 font-medium">
+                Confirmed passenger seats
+              </p>
+            </div>
+
+            <div className="bg-white p-4 sm:p-5 rounded-2xl border border-zinc-200/80 shadow-2xs">
+              <div className="flex items-center justify-between text-zinc-400 mb-1.5">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
+                  Avg Ticket Yield
+                </span>
+                <Percent size={15} className="text-zinc-500" />
+              </div>
+              <p className="text-2xl font-bold tracking-tight text-zinc-900">
+                {loadingAnalytics ? '—' : `₹${Math.round(analyticsData.average_ticket_price || 0).toLocaleString('en-IN')}`}
+              </p>
+              <p className="text-[11px] text-zinc-400 mt-1 font-medium">
+                Average price realized per seat
+              </p>
+            </div>
+          </div>
+
+          {/* Visual SVG Timeline Chart */}
+          <RevenueTimelineChart dailyData={analyticsData.daily_revenue} />
+
+          {/* Route Occupancy & Fleet Utilization Breakdowns */}
+          <RouteFleetAnalytics
+            routeOccupancy={analyticsData.route_occupancy}
+            busUtilization={analyticsData.bus_utilization}
+          />
         </div>
 
         {/* Quick Management Suite */}
@@ -169,20 +326,20 @@ const OperatorDashboard = () => {
         </div>
 
         {/* Live Operational Health Status */}
-        <div className="bg-white p-5 rounded-2xl border border-zinc-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="bg-white p-5 rounded-2xl border border-zinc-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-2xs">
           <div className="flex items-center gap-3">
             <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
             <div>
-              <p className="text-xs font-bold text-zinc-900">System Telemetry Operational</p>
-              <p className="text-[11px] text-zinc-400">PostgreSQL concurrency locking and background lock cleaners active.</p>
+              <p className="text-xs font-bold text-zinc-900">System Telemetry & Engine Active</p>
+              <p className="text-[11px] text-zinc-400">PostgreSQL concurrency locking, live occupancy feeds, and background cleaners active.</p>
             </div>
           </div>
           <Link
             to="/operator/bookings"
-            className="text-xs font-semibold text-zinc-700 hover:text-zinc-900 flex items-center gap-1"
+            className="text-xs font-semibold text-zinc-700 hover:text-zinc-900 flex items-center gap-1 group"
           >
-            <span>Review Live Manifest</span>
-            <ArrowRight size={13} />
+            <span>Review Live Passenger Manifest</span>
+            <ArrowRight size={13} className="group-hover:translate-x-0.5 transition-transform" />
           </Link>
         </div>
       </div>

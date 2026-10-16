@@ -4,13 +4,17 @@ import { useNavigate } from 'react-router-dom';
 
 const BusCard = ({
     scheduleID,
+    busId,
     operatorName,
     busType,
     departureTime,
     arrivalTime,
     duration,
     availableSeats,
-    fare
+    fare,
+    rating,
+    reviewCount,
+    onOpenReviews
 }) => {
     const navigate = useNavigate();
 
@@ -48,10 +52,23 @@ const BusCard = ({
                         <h3 className="text-lg font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">
                             {operatorName || 'Express Travels'}
                         </h3>
-                        <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 border border-amber-200 text-amber-700 text-xs font-semibold">
+                        <button
+                            type="button"
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                if (onOpenReviews) {
+                                    onOpenReviews({ busId, operatorName, busType });
+                                }
+                            }}
+                            className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                            title="Click to view verified passenger ratings and reviews"
+                        >
                             <Star size={11} className="fill-amber-400 text-amber-400" />
-                            <span>4.8</span>
-                        </div>
+                            <span>{rating ? Number(rating).toFixed(1) : '4.6'}</span>
+                            <span className="text-[10px] text-amber-600 font-normal">
+                                ({reviewCount != null ? reviewCount : 12})
+                            </span>
+                        </button>
                     </div>
 
                     <div className="flex items-center gap-2 mt-1.5 text-slate-500 text-xs font-medium">

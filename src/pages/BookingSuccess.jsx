@@ -1,7 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { CheckCircle2, Bus, Armchair, Hash, ArrowRight, Copy, Check, Calendar, Download } from 'lucide-react';
+import {
+  CheckCircle2, Bus, Armchair, Hash, ArrowRight, Copy, Check,
+  Calendar, Download, MapPin, Users, Phone, Mail
+} from 'lucide-react';
 import { getBookingDetails } from '../api/bookings';
+import { generatePdfTicket } from '../utils/generatePdfTicket';
 import Toast from './Toast';
 import Navbar from '../components/Navbar';
 
@@ -14,6 +18,7 @@ const BookingSuccess = () => {
   const [error, setError] = useState('');
   const [toastMessage, setToastMessage] = useState('');
   const [copied, setCopied] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   useEffect(() => {
     if (!ref) {
@@ -49,6 +54,19 @@ const BookingSuccess = () => {
     }
   };
 
+  const handleDownloadPdf = async () => {
+    if (!booking) return;
+    setDownloadingPdf(true);
+    try {
+      await generatePdfTicket(booking);
+      setToastMessage('Official E-Ticket PDF successfully downloaded!');
+    } catch (err) {
+      setToastMessage('Failed to generate PDF: ' + (err.message || 'error'));
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
   const displaySeats = booking?.seats && booking.seats.length > 0
     ? booking.seats.join(', ')
     : (booking?.seat_number || searchParams.get('seat') || '-');
@@ -80,7 +98,7 @@ const BookingSuccess = () => {
             Booking Confirmed!
           </h1>
           <p className="text-sm text-slate-500 mt-2 max-w-sm mx-auto">
-            Your seats have been successfully reserved. Your boarding pass is ready.
+            Your seats have been successfully reserved and tickets issued.
           </p>
 
           {/* Reference Badge with Copy Action */}
@@ -137,15 +155,87 @@ const BookingSuccess = () => {
                 <span className="font-black text-indigo-600">{displaySeats}</span>
               </div>
 
+              {/* Per-seat Passenger details */}
+              {booking?.passengers && booking.passengers.length > 0 && (
+                <div className="pt-2.5 border-t border-slate-200/60 space-y-2">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                    Passenger Manifest
+                  </span>
+                  <div className="space-y-1.5">
+                    {booking.passengers.map((p) => (
+                      <div key={p.seat_number} className="flex justify-between items-center text-xs">
+                        <span className="font-semibold text-slate-800">
+                          {p.name} {p.age ? `(${p.age}${p.gender ? '/' + p.gender.charAt(0) : ''})` : ''}
+                        </span>
+                        <span className="px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 font-bold text-[11px]">
+                          Seat {p.seat_number}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Boarding and Dropping points from DB */}
+              {(booking?.boarding_point || booking?.dropping_point) && (
+                <div className="pt-2.5 border-t border-slate-200/60 space-y-1.5 text-xs">
+                  {booking.boarding_point && (
+                    <div className="flex justify-between items-start">
+                      <span className="text-slate-500 font-medium flex items-center gap-1.5 shrink-0">
+                        <MapPin size={12} className="text-indigo-600" /> Boarding Point:
+                      </span>
+                      <span className="font-semibold text-slate-900 text-right ml-2">
+                        {booking.boarding_point}
+                      </span>
+                    </div>
+                  )}
+                  {booking.dropping_point && (
+                    <div className="flex justify-between items-start">
+                      <span className="text-slate-500 font-medium flex items-center gap-1.5 shrink-0">
+                        <MapPin size={12} className="text-emerald-600" /> Dropping Point:
+                      </span>
+                      <span className="font-semibold text-slate-900 text-right ml-2">
+                        {booking.dropping_point}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="pt-3 border-t border-slate-200/70 flex justify-between items-baseline">
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Paid</span>
                 <span className="text-2xl font-black text-slate-900">₹{Number(displayAmount || 0).toLocaleString('en-IN')}</span>
+              </div>
+
+              {/* Verified Payment Strip */}
+              <div className="pt-3 border-t border-slate-200/70 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 size={16} className="text-emerald-600 shrink-0" />
+                  <div>
+                    <span className="font-bold text-slate-900 block">Payment Verified & Captured</span>
+                    <span className="text-[10px] text-slate-400 font-mono">
+                      Txn: {booking?.payment_id || `pay_${(booking?.booking_ref || ref || '').toLowerCase()}`}
+                    </span>
+                  </div>
+                </div>
+                <span className="px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
+                  {booking?.payment_method || 'Online Card/UPI'}
+                </span>
               </div>
             </div>
           )}
 
           {/* Primary Action Buttons */}
           <div className="mt-8 space-y-3">
+            <button
+              onClick={handleDownloadPdf}
+              disabled={downloadingPdf || !booking}
+              className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/20 active:scale-98 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Download size={16} />
+              <span>{downloadingPdf ? 'Generating PDF...' : 'Download PDF E-Ticket'}</span>
+            </button>
+
             <Link
               to={`/ticket/${booking?.booking_ref || ref}`}
               className="w-full h-12 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-600/20 hover:shadow-xl active:scale-98 transition-all"

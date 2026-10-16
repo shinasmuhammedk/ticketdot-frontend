@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Bus, Route, CalendarDays, Ticket,
-  LogOut, Compass, ExternalLink, Menu, X, ChevronRight, User
+  LogOut, Compass, ExternalLink, Menu, X, ChevronRight, User, Star
 } from 'lucide-react';
 import { getCurrentUser } from '../../api/auth';
 
@@ -12,6 +12,7 @@ const NAV_ITEMS = [
   { label: 'Routes', path: '/operator/routes', icon: Route },
   { label: 'Schedules', path: '/operator/schedules', icon: CalendarDays },
   { label: 'Bookings Manifest', path: '/operator/bookings', icon: Ticket },
+  { label: 'Reviews & Ratings', path: '/operator/reviews', icon: Star },
 ];
 
 const OperatorLayout = ({ title, subtitle, action, children }) => {
@@ -66,7 +67,9 @@ const OperatorLayout = ({ title, subtitle, action, children }) => {
 
           <div className="mt-4 px-3 py-2 rounded-xl bg-zinc-50 border border-zinc-200/70 flex items-center justify-between">
             <div className="min-w-0">
-              <p className="text-xs font-semibold text-zinc-800 truncate">Shivneri Travels</p>
+              <p className="text-xs font-semibold text-zinc-800 truncate">
+                {user?.name || 'Operator Fleet'}
+              </p>
               <div className="flex items-center gap-1.5 mt-0.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="text-[10px] font-medium text-zinc-500">Fleet Active</span>
@@ -100,6 +103,14 @@ const OperatorLayout = ({ title, subtitle, action, children }) => {
 
         {/* Bottom Actions */}
         <div className="p-3 border-t border-zinc-100 space-y-1">
+          <Link
+            to="/profile"
+            className="flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/70 transition-colors"
+          >
+            <User size={15} />
+            <span>Operator Profile</span>
+          </Link>
+
           <Link
             to="/dashboard"
             className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-zinc-600 hover:text-zinc-900 hover:bg-zinc-100/70 transition-colors"
@@ -140,9 +151,13 @@ const OperatorLayout = ({ title, subtitle, action, children }) => {
 
           <div className="flex items-center gap-3">
             {action && <div>{action}</div>}
-            <div className="w-8 h-8 rounded-full bg-zinc-100 border border-zinc-200 flex items-center justify-center text-xs font-bold text-zinc-700">
+            <Link
+              to="/profile"
+              title="View Profile"
+              className="w-8 h-8 rounded-full bg-zinc-100 hover:bg-zinc-200 border border-zinc-200 flex items-center justify-center text-xs font-bold text-zinc-700 transition-colors"
+            >
               {user?.name ? user.name.charAt(0).toUpperCase() : <User size={14} />}
-            </div>
+            </Link>
           </div>
         </header>
 

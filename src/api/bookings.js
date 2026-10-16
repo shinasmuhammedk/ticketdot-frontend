@@ -8,13 +8,17 @@ export const lockSeat = (scheduleId, seats) => {
   });
 };
 
-export const confirmBooking = (scheduleId, seats) => {
+export const confirmBooking = (payloadOrScheduleId, seats) => {
+  if (typeof payloadOrScheduleId === 'object' && payloadOrScheduleId !== null && payloadOrScheduleId.schedule_id) {
+    return api.post('/bookings/confirm', payloadOrScheduleId);
+  }
   const seatList = Array.isArray(seats) ? seats : [seats];
   return api.post('/bookings/confirm', {
-    schedule_id: scheduleId,
+    schedule_id: payloadOrScheduleId,
     seats: seatList,
   });
 };
+
 
 export const releaseSeats = (scheduleId, seats) => {
   const seatList = Array.isArray(seats) ? seats : [seats];
@@ -34,4 +38,8 @@ export const cancelBooking = (bookingRef) => {
 
 export const getBookingDetails = (bookingRef) => {
   return api.get(`/bookings/${bookingRef}`);
+};
+
+export const emailBookingTicket = (bookingRef, email) => {
+  return api.post(`/bookings/${bookingRef}/email`, { email });
 };

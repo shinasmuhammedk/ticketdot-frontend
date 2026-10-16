@@ -32,6 +32,27 @@ export const getDashboardStats = () => {
   return api.get('/operator/dashboard');
 };
 
+export const getAnalytics = (period = '7d') => {
+  return api.get(`/operator/analytics?period=${period}`);
+};
+
+
 export const getCities = () => {
   return api.get('/cities');
+};
+
+export const updateBus = (busId, payload) => {
+  return api.put(`/operator/buses/${busId}`, payload);
+};
+
+export const deleteBus = (busId) => {
+  return api.delete(`/operator/buses/${busId}`);
+};
+
+export const getBusLayout = (busId) => {
+  return api.get(`/operator/buses/${busId}/layout`);
+};
+
+export const cancelSchedule = (scheduleId) => {
+  return api.post(`/operator/schedules/${scheduleId}/cancel`);
 };

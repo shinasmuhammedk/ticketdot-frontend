@@ -1,14 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { getBookingDetails, cancelBooking } from '../api/bookings';
+import { getBookingDetails, cancelBooking, emailBookingTicket } from '../api/bookings';
+import { getBookingReview } from '../api/reviews';
+import { generatePdfTicket } from '../utils/generatePdfTicket';
 import {
   ArrowLeft, Bus, Armchair, Hash, Clock, CheckCircle2,
   XCircle, AlertCircle, User, CreditCard, Calendar,
-  Download, Share2, Printer, QrCode, AlertTriangle, MapPin
+  Download, Share2, Printer, QrCode, AlertTriangle, MapPin,
+  Users, Phone, Mail, Send, Loader2, Navigation, Star
 } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 import Navbar from '../components/Navbar';
 import Toast from './Toast';
+import ReviewModal from '../components/ReviewModal';
 
 const statusConfig = {
   confirmed: {
@@ -44,13 +48,36 @@ const TicketDetails = () => {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
 
+  // PDF & Email Dispatch State
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [showEmailModal, setShowEmailModal] = useState(false);
+  const [targetEmail, setTargetEmail] = useState('');
+  const [sendingEmail, setSendingEmail] = useState(false);
+  const [showReviewModal, setShowReviewModal] = useState(false);
+  const [userReview, setUserReview] = useState(null);
+
   useEffect(() => {
     const loadTicket = async () => {
       try {
         const res = await getBookingDetails(bookingRef);
         setTicket(res.data.data);
+
+        // Check if user has already reviewed this trip
+        try {
+          const revRes = await getBookingReview(bookingRef);
+          if (revRes.data?.data) {
+            setUserReview(revRes.data.data);
+          }
+        } catch (e) {
+          // ignore review check error
+        }
       } catch (err) {
-        setError(err.response?.data?.message || 'Failed to load boarding pass');
+        const errorMsg =
+          err.response?.data?.message ||
+          (typeof err.response?.data === 'string' ? err.response?.data : '') ||
+          err.message ||
+          'Failed to load boarding pass';
+        setError(errorMsg);
       } finally {
         setLoading(false);
       }
@@ -61,14 +88,62 @@ const TicketDetails = () => {
   const handleCancel = async () => {
     setCancelling(true);
     try {
-      await cancelBooking(bookingRef);
-      setTicket((prev) => ({ ...prev, status: 'cancelled' }));
-      setToastMessage('Booking successfully cancelled. Seats have been released.');
+      const res = await cancelBooking(bookingRef);
+      const cancelData = res.data?.data;
+      setTicket((prev) => ({
+        ...prev,
+        status: 'cancelled',
+        refund_id: cancelData?.refund_id || prev?.refund_id,
+        refund_amount: cancelData?.refund_amount || prev?.refund_amount,
+        refund_status: cancelData?.refund_status || 'processed',
+        payment_status: 'refunded',
+      }));
+      if (cancelData?.refund_id) {
+        setToastMessage(`Booking cancelled. Refund of ₹${cancelData.refund_amount} initiated (Ref: ${cancelData.refund_id})`);
+      } else {
+        setToastMessage('Booking successfully cancelled. Seats have been released.');
+      }
       setShowCancelModal(false);
     } catch (err) {
       setToastMessage(err.response?.data?.message || 'Failed to cancel booking');
     } finally {
       setCancelling(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!ticket) return;
+    setDownloadingPdf(true);
+    try {
+      await generatePdfTicket(ticket);
+      setToastMessage('E-Ticket PDF successfully downloaded!');
+    } catch (err) {
+      setToastMessage('Failed to generate PDF: ' + (err.message || 'error'));
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
+  const handleOpenEmailModal = () => {
+    setTargetEmail(ticket?.contact_email || '');
+    setShowEmailModal(true);
+  };
+
+  const handleSendEmail = async () => {
+    const emailToSend = targetEmail.trim() || ticket?.contact_email;
+    if (!emailToSend) {
+      setToastMessage('Please enter a valid recipient email address');
+      return;
+    }
+    setSendingEmail(true);
+    try {
+      const res = await emailBookingTicket(ticket.booking_ref || bookingRef, emailToSend);
+      setToastMessage(res.data?.message || `E-Ticket dispatched to ${emailToSend}`);
+      setShowEmailModal(false);
+    } catch (err) {
+      setToastMessage(err.response?.data?.message || 'Failed to dispatch e-ticket email');
+    } finally {
+      setSendingEmail(false);
     }
   };
 
@@ -130,16 +205,9 @@ const TicketDetails = () => {
     ? ticket.seats.join(', ')
     : (ticket.seat_number || '—');
 
-  const storedPoints = (() => {
-    try {
-      const raw = localStorage.getItem(`ticket_points_${ticket.booking_ref || bookingRef}`);
-      return raw ? JSON.parse(raw) : null;
-    } catch {
-      return null;
-    }
-  })();
-  const boardingPoint = storedPoints?.boarding || `${ticket.origin} Central Bus Station`;
-  const droppingPoint = storedPoints?.dropping || `${ticket.destination} Main Terminal`;
+  // Boarding & Dropping Points directly from database record
+  const boardingPoint = ticket.boarding_point || `${ticket.origin} Central Bus Station`;
+  const droppingPoint = ticket.dropping_point || `${ticket.destination} Main Terminal`;
 
   const qrPayload = JSON.stringify({
     ref: ticket.booking_ref || bookingRef,
@@ -147,6 +215,8 @@ const TicketDetails = () => {
     route: `${ticket.origin} -> ${ticket.destination}`,
     seats: ticket.seats || [ticket.seat_number],
     dep: ticket.departure_time,
+    boarding: boardingPoint,
+    dropping: droppingPoint,
     status: ticket.status,
     verified_by: 'TicketDot_Platform',
   });
@@ -174,18 +244,71 @@ const TicketDetails = () => {
           </Link>
 
           <div className="flex items-center gap-2">
+            {!isCancelled && (
+              <Link
+                to={`/track/${ticket.booking_ref || bookingRef}`}
+                className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-emerald-600/20 active:scale-98 transition-all cursor-pointer"
+                title="Track Live Bus GPS & Telemetry"
+              >
+                <Navigation size={14} className="animate-pulse" />
+                <span>Live Track</span>
+              </Link>
+            )}
+
+            <button
+              onClick={handleDownloadPdf}
+              disabled={downloadingPdf}
+              className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-700 hover:to-blue-700 text-white text-xs font-bold flex items-center gap-1.5 shadow-sm shadow-indigo-600/20 active:scale-98 transition-all cursor-pointer disabled:opacity-50"
+              title="Download official PDF E-Ticket"
+            >
+              {downloadingPdf ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+              <span>{downloadingPdf ? 'Generating...' : 'Download PDF'}</span>
+            </button>
+
+            <button
+              onClick={handleOpenEmailModal}
+              className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Dispatch E-Ticket to Email"
+            >
+              <Mail size={14} />
+              <span className="hidden sm:inline">Email Ticket</span>
+            </button>
+
+            {!isCancelled && (
+              userReview ? (
+                <div
+                  className="px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs font-bold flex items-center gap-1.5 shadow-2xs"
+                  title="Your Verified Review"
+                >
+                  <Star size={13} className="text-amber-500 fill-amber-500" />
+                  <span>Rated {Number(userReview.rating).toFixed(1)} ★</span>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowReviewModal(true)}
+                  className="px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-800 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer shadow-2xs"
+                  title="Rate your journey experience"
+                >
+                  <Star size={14} className="text-amber-500" />
+                  <span>Rate Journey</span>
+                </button>
+              )
+            )}
+
             <button
               onClick={() => window.print()}
-              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              className="px-3 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
+              title="Print Boarding Pass"
             >
               <Printer size={14} />
-              Print / Save PDF
+              <span className="hidden sm:inline">Print</span>
             </button>
 
             {!isCancelled && (
               <button
                 onClick={() => setShowCancelModal(true)}
-                className="px-4 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold transition-colors cursor-pointer"
+                className="px-3 py-2 rounded-xl bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-bold transition-colors cursor-pointer"
               >
                 Cancel Booking
               </button>
@@ -242,6 +365,23 @@ const TicketDetails = () => {
                 <p className="text-xs text-slate-300 mt-1 font-medium">{formatDateTime(ticket.arrival_time)}</p>
               </div>
             </div>
+
+            {/* Live GPS Telemetry Callout */}
+            {!isCancelled && (
+              <div className="mt-6 pt-4 border-t border-white/10 flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  <span className="text-xs font-semibold text-emerald-300">Live GPS Stream Active</span>
+                </div>
+                <Link
+                  to={`/track/${ticket.booking_ref || bookingRef}`}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-white hover:text-indigo-200 transition-colors bg-white/10 hover:bg-white/20 px-3 py-1.5 rounded-xl border border-white/15"
+                >
+                  <Navigation size={13} className="text-emerald-400" />
+                  <span>Open Live Map & ETA ➔</span>
+                </Link>
+              </div>
+            )}
           </div>
 
           {/* Perforated Ticket Divider with Notches */}
@@ -255,7 +395,7 @@ const TicketDetails = () => {
           <div className="p-6 sm:p-8">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
               <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Passenger</span>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Primary Contact</span>
                 <p className="text-sm font-bold text-slate-900 mt-1 truncate">{ticket.passenger_name || 'Passenger'}</p>
               </div>
 
@@ -277,6 +417,70 @@ const TicketDetails = () => {
               </div>
             </div>
 
+            {/* Payment Gateway & Refund Info Strip */}
+            <div className="mt-6 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                  <CreditCard size={17} />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-900">Payment Gateway Details</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      ticket.payment_status === 'refunded' || isCancelled
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-emerald-100 text-emerald-800'
+                    }`}>
+                      {ticket.payment_status === 'refunded' || isCancelled ? 'Refunded' : (ticket.payment_status || 'Paid')}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500 font-mono mt-0.5">
+                    Txn ID: {ticket.payment_id || `pay_${(ticket.booking_ref || '').toLowerCase()}`} • {ticket.payment_method || 'Online Card/UPI'}
+                  </p>
+                </div>
+              </div>
+
+              {(ticket.refund_id || isCancelled) && (
+                <div className="text-left sm:text-right bg-white sm:bg-transparent p-2.5 sm:p-0 rounded-xl border border-amber-200 sm:border-0">
+                  <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">
+                    Refund Processed (₹{ticket.refund_amount || ticket.amount})
+                  </span>
+                  <span className="text-xs font-mono font-bold text-slate-900">
+                    Ref: {ticket.refund_id || `rfnd_${ticket.booking_ref}`}
+                  </span>
+                  <p className="text-[10px] text-slate-400">Credited to source (5-7 business days)</p>
+                </div>
+              )}
+            </div>
+
+            {/* Passenger Manifest Per-Seat List */}
+            {ticket.passengers && ticket.passengers.length > 0 && (
+              <div className="mt-6 border-t border-slate-100 pt-5">
+                <div className="flex items-center gap-1.5 mb-3">
+                  <Users size={14} className="text-indigo-600" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-800">
+                    Passenger Manifest ({ticket.passengers.length} Passenger{ticket.passengers.length !== 1 ? 's' : ''})
+                  </span>
+                </div>
+                <div className="rounded-2xl border border-slate-200 overflow-hidden divide-y divide-slate-100 shadow-2xs">
+                  <div className="bg-slate-50 px-4 py-2 text-[10px] font-bold uppercase tracking-wider text-slate-400 grid grid-cols-12">
+                    <span className="col-span-3">Seat</span>
+                    <span className="col-span-5">Passenger Name</span>
+                    <span className="col-span-2">Age</span>
+                    <span className="col-span-2 text-right">Gender</span>
+                  </div>
+                  {ticket.passengers.map((p, idx) => (
+                    <div key={p.seat_number || idx} className="px-4 py-2.5 text-xs grid grid-cols-12 items-center bg-white">
+                      <span className="col-span-3 font-black text-indigo-700">Seat {p.seat_number}</span>
+                      <span className="col-span-5 font-bold text-slate-900">{p.name || 'Passenger'}</span>
+                      <span className="col-span-2 text-slate-600 font-medium">{p.age ? `${p.age} yrs` : '—'}</span>
+                      <span className="col-span-2 text-right text-slate-600 font-medium">{p.gender || '—'}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Boarding & Dropping Points Card */}
             <div className="mt-6 p-4 rounded-2xl bg-slate-50 border border-slate-200/80 grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="flex items-start gap-2.5">
@@ -297,10 +501,30 @@ const TicketDetails = () => {
                 <div>
                   <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Dropping Point</span>
                   <p className="text-xs font-bold text-slate-900 mt-0.5">{droppingPoint}</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">Subject to normal traffic conditions</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">Subject to highway traffic conditions</p>
                 </div>
               </div>
             </div>
+
+            {/* Contact Details */}
+            {(ticket.contact_phone || ticket.contact_email) && (
+              <div className="mt-4 flex flex-wrap items-center gap-4 text-xs text-slate-500 px-1">
+                {ticket.contact_phone && (
+                  <span className="flex items-center gap-1.5">
+                    <Phone size={13} className="text-indigo-600" />
+                    <span className="text-slate-400">Mobile:</span>
+                    <strong className="text-slate-800 font-semibold">{ticket.contact_phone}</strong>
+                  </span>
+                )}
+                {ticket.contact_email && (
+                  <span className="flex items-center gap-1.5">
+                    <Mail size={13} className="text-indigo-600" />
+                    <span className="text-slate-400">Email:</span>
+                    <strong className="text-slate-800 font-semibold">{ticket.contact_email}</strong>
+                  </span>
+                )}
+              </div>
+            )}
 
             {/* Authentic Scannable QR Code & Verification Section */}
             <div className="mt-8 pt-6 border-t border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-5">
@@ -371,6 +595,85 @@ const TicketDetails = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Email E-Ticket Modal */}
+      {showEmailModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl p-6 sm:p-7 max-w-md w-full shadow-2xl border border-slate-100 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-indigo-50 text-indigo-600 flex items-center justify-center shadow-xs">
+                  <Mail size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Email E-Ticket</h3>
+                  <p className="text-[11px] text-slate-400">Receive boarding pass in your inbox</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowEmailModal(false)}
+                className="p-1 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 transition-colors"
+              >
+                <XCircle size={18} />
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-500 mb-4 leading-relaxed">
+              We'll send the complete reservation summary, passenger manifest, and scannable QR pass for booking <strong className="text-slate-800 font-mono">#{ticket?.booking_ref}</strong>.
+            </p>
+
+            <div className="space-y-1.5 mb-5">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                Recipient Email Address
+              </label>
+              <input
+                type="email"
+                value={targetEmail}
+                onChange={(e) => setTargetEmail(e.target.value)}
+                placeholder="passenger@example.com"
+                className="w-full h-11 px-3.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 bg-slate-50 focus:bg-white focus:border-indigo-600 outline-none transition-colors"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5">
+              <button
+                type="button"
+                onClick={() => setShowEmailModal(false)}
+                disabled={sendingEmail}
+                className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-700 font-semibold text-xs hover:bg-slate-50 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSendEmail}
+                disabled={sendingEmail || !targetEmail.trim()}
+                className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-2 shadow-md shadow-indigo-600/20 active:scale-98 transition-all disabled:opacity-50 cursor-pointer"
+              >
+                {sendingEmail ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                <span>{sendingEmail ? 'Dispatching...' : 'Send E-Ticket'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Review Modal */}
+      {showReviewModal && (
+        <ReviewModal
+          isOpen={showReviewModal}
+          onClose={() => setShowReviewModal(false)}
+          bookingRef={ticket?.booking_ref || bookingRef}
+          origin={ticket?.origin}
+          destination={ticket?.destination}
+          operatorName={ticket?.operator_name}
+          onSuccess={(newReview) => {
+            setUserReview(newReview);
+            setToastMessage('Thank you! Your verified review has been submitted.');
+          }}
+        />
       )}
     </div>
   );

@@ -6,6 +6,7 @@ import {
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { searchBuses } from '../api/buses';
 import BusCard from '../components/BusCard';
+import BusReviewsModal from '../components/BusReviewsModal';
 import Navbar from '../components/Navbar';
 
 const TIME_SLOTS = [
@@ -38,6 +39,7 @@ const SearchResults = () => {
   const [selectedBusTypes, setSelectedBusTypes] = useState([]);
   const [selectedOperators, setSelectedOperators] = useState([]);
   const [sortBy, setSortBy] = useState('departure');
+  const [selectedBusForReviews, setSelectedBusForReviews] = useState(null);
 
   const navigate = useNavigate();
 
@@ -327,12 +329,16 @@ const SearchResults = () => {
                   <BusCard
                     key={bus.schedule_id}
                     scheduleID={bus.schedule_id}
+                    busId={bus.bus_id}
                     operatorName={bus.operator_name}
                     busType={bus.bus_type}
                     departureTime={bus.departure_time}
                     arrivalTime={bus.arrival_time}
                     availableSeats={bus.available_seats}
                     fare={bus.base_fare}
+                    rating={bus.rating}
+                    reviewCount={bus.review_count}
+                    onOpenReviews={(b) => setSelectedBusForReviews(b)}
                   />
                 ))}
               </div>
@@ -341,6 +347,17 @@ const SearchResults = () => {
 
         </div>
       </main>
+
+      {/* Bus Reviews & Ratings Modal */}
+      {selectedBusForReviews && (
+        <BusReviewsModal
+          isOpen={Boolean(selectedBusForReviews)}
+          onClose={() => setSelectedBusForReviews(null)}
+          busId={selectedBusForReviews.busId}
+          operatorName={selectedBusForReviews.operatorName}
+          busType={selectedBusForReviews.busType}
+        />
+      )}
     </div>
   );
 };

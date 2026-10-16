@@ -5,7 +5,7 @@ import { getBusDetails } from '../api/buses';
 import {
   ArrowLeft, Bus, Clock, Armchair, Lock, CheckCircle2,
   ChevronRight, AlertCircle, Timer, ShieldCheck, RotateCcw,
-  MapPin, CreditCard
+  MapPin, CreditCard, User, Mail, Phone, Users
 } from 'lucide-react';
 import SeatMap from '../components/SeatMap';
 import { lockSeat, confirmBooking, releaseSeats } from '../api/bookings';
@@ -33,8 +33,14 @@ const SeatSelection = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
 
+  // Boarding & Dropping Points
   const [boardingPoint, setBoardingPoint] = useState('');
   const [droppingPoint, setDroppingPoint] = useState('');
+
+  // Per-seat passenger details & contact info
+  const [passengers, setPassengers] = useState([]);
+  const [contactPhone, setContactPhone] = useState('');
+  const [contactEmail, setContactEmail] = useState('');
 
   const userLockedSeatsRef = useRef(userLockedSeats);
   const scheduleIdRef = useRef(scheduleId);
@@ -47,6 +53,37 @@ const SeatSelection = () => {
   useEffect(() => {
     scheduleIdRef.current = scheduleId;
   }, [scheduleId]);
+
+  // Sync passengers list whenever userLockedSeats changes
+  useEffect(() => {
+    if (userLockedSeats.length > 0) {
+      const cachedUser = (() => {
+        try {
+          return JSON.parse(localStorage.getItem('user') || '{}');
+        } catch {
+          return {};
+        }
+      })();
+
+      if (cachedUser.email && !contactEmail) setContactEmail(cachedUser.email);
+      if (cachedUser.phone && !contactPhone) setContactPhone(cachedUser.phone);
+
+      setPassengers((prev) => {
+        return userLockedSeats.map((seatNum, idx) => {
+          const existing = prev.find((p) => p.seat_number === seatNum);
+          if (existing) return existing;
+          return {
+            seat_number: seatNum,
+            name: idx === 0 ? (cachedUser.name || '') : '',
+            age: '',
+            gender: 'Male',
+          };
+        });
+      });
+    } else {
+      setPassengers([]);
+    }
+  }, [userLockedSeats]);
 
   // Release locks on component unmount (if not confirmed)
   useEffect(() => {
@@ -204,7 +241,7 @@ const SeatSelection = () => {
       setUserLockedSeats(selectedSeats);
       setLockExpires(expiry);
       setSelectedSeats([]);
-      setToastMessage(`Seats locked! Complete your booking within 5 minutes.`);
+      setToastMessage(`Seats locked! Fill passenger details to complete your reservation.`);
 
       await loadSeats();
     } catch (err) {
@@ -231,30 +268,48 @@ const SeatSelection = () => {
     }
   };
 
-  const handleConfirmBooking = async () => {
+  const handlePassengerChange = (seatNumber, field, value) => {
+    setPassengers((prev) =>
+      prev.map((p) => {
+        if (p.seat_number === seatNumber) {
+          return { ...p, [field]: value };
+        }
+        return p;
+      })
+    );
+  };
+
+  const handleOpenPaymentModal = () => {
     if (userLockedSeats.length === 0) {
-      setToastMessage('Please lock your selected seats first');
+      setToastMessage('Please select and lock seats first');
       return;
     }
 
-    setActionLoading(true);
-    try {
-      const res = await confirmBooking(scheduleId, userLockedSeats);
-      bookingConfirmedRef.current = true;
-      const bookingRef = res.data?.data?.booking_ref;
-      if (bookingRef) {
-        localStorage.setItem(`ticket_points_${bookingRef}`, JSON.stringify({
-          boarding: boardingPoint,
-          dropping: droppingPoint,
-        }));
+    // Validate passenger details
+    for (const p of passengers) {
+      if (!p.name || !p.name.trim()) {
+        setToastMessage(`Please enter passenger name for Seat ${p.seat_number}`);
+        return;
       }
-      navigate(`/booking-success?ref=${bookingRef}`);
-    } catch (err) {
-      const errMsg = err.response?.data?.message || err.response?.data?.error || err.message || 'Failed to confirm booking';
-      setToastMessage(errMsg);
-    } finally {
-      setActionLoading(false);
+      if (p.age && (Number(p.age) < 1 || Number(p.age) > 120)) {
+        setToastMessage(`Please enter a valid age for Seat ${p.seat_number}`);
+        return;
+      }
     }
+
+    if (!contactPhone || !contactPhone.trim()) {
+      setToastMessage('Please enter contact mobile number for ticket SMS/dispatch');
+      return;
+    }
+
+    setShowPaymentModal(true);
+  };
+
+  const handlePaymentSuccess = (bookingData) => {
+    bookingConfirmedRef.current = true;
+    setShowPaymentModal(false);
+    const bookingRef = bookingData?.booking_ref;
+    navigate(`/booking-success?ref=${bookingRef}`);
   };
 
   const handleLimitReached = () => {
@@ -367,7 +422,7 @@ const SeatSelection = () => {
                 <span className="text-xs font-semibold text-slate-400">Max 6 seats</span>
               </h2>
 
-              <div className="py-5 space-y-4">
+              <div className="py-5 space-y-5">
                 {/* Active Seats List */}
                 <div>
                   <div className="flex items-center justify-between text-xs font-bold text-slate-500 mb-2">
@@ -407,6 +462,104 @@ const SeatSelection = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Passenger Information Inputs (When Seats Are Locked) */}
+                {isLockedState && (
+                  <div className="pt-4 border-t border-slate-100 space-y-4 animate-in fade-in duration-200">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
+                        <Users size={14} className="text-indigo-600" />
+                        <span>Passenger Manifest</span>
+                      </label>
+                      <span className="text-[11px] text-slate-400 font-medium">As on Govt ID</span>
+                    </div>
+
+                    <div className="space-y-3 max-h-60 overflow-y-auto pr-1">
+                      {passengers.map((p, idx) => (
+                        <div key={p.seat_number} className="p-3.5 rounded-2xl bg-slate-50/70 border border-slate-200/80 space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-indigo-700 flex items-center gap-1.5">
+                              <Armchair size={13} />
+                              Seat {p.seat_number}
+                            </span>
+                            <span className="text-[10px] font-semibold text-slate-400">
+                              Passenger {idx + 1}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                            <div className="sm:col-span-7">
+                              <input
+                                type="text"
+                                placeholder="Full Name"
+                                value={p.name}
+                                onChange={(e) => handlePassengerChange(p.seat_number, 'name', e.target.value)}
+                                className="w-full h-8 px-2.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
+                              />
+                            </div>
+                            <div className="sm:col-span-5">
+                              <input
+                                type="number"
+                                placeholder="Age"
+                                min="1"
+                                max="120"
+                                value={p.age}
+                                onChange={(e) => handlePassengerChange(p.seat_number, 'age', e.target.value)}
+                                className="w-full h-8 px-2.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 pt-1">
+                            {['Male', 'Female', 'Other'].map((g) => (
+                              <button
+                                key={g}
+                                type="button"
+                                onClick={() => handlePassengerChange(p.seat_number, 'gender', g)}
+                                className={`px-2.5 py-1 rounded-md text-[11px] font-semibold transition-all ${
+                                  p.gender === g
+                                    ? 'bg-zinc-900 text-white'
+                                    : 'bg-white text-zinc-600 border border-zinc-200 hover:bg-zinc-100'
+                                }`}
+                              >
+                                {g}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Contact details for Ticket Dispatch */}
+                    <div className="pt-3 border-t border-slate-100 space-y-2.5">
+                      <label className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block">
+                        Ticket Dispatch Contact
+                      </label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <div className="relative">
+                          <Phone size={12} className="absolute left-2.5 top-2.5 text-slate-400" />
+                          <input
+                            type="tel"
+                            placeholder="Mobile No."
+                            value={contactPhone}
+                            onChange={(e) => setContactPhone(e.target.value)}
+                            className="w-full h-8 pl-7 pr-2.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
+                          />
+                        </div>
+                        <div className="relative">
+                          <Mail size={12} className="absolute left-2.5 top-2.5 text-slate-400" />
+                          <input
+                            type="email"
+                            placeholder="Email address"
+                            value={contactEmail}
+                            onChange={(e) => setContactEmail(e.target.value)}
+                            className="w-full h-8 pl-7 pr-2.5 rounded-lg border border-slate-200 bg-white text-xs font-medium text-slate-800 placeholder-slate-400 focus:outline-none focus:border-indigo-600"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
 
                 {/* Boarding & Dropping Points Selector */}
                 <div className="pt-4 border-t border-slate-100 space-y-3">
@@ -489,7 +642,7 @@ const SeatSelection = () => {
                 ) : (
                   <>
                     <button
-                      onClick={() => setShowPaymentModal(true)}
+                      onClick={handleOpenPaymentModal}
                       disabled={actionLoading}
                       type="button"
                       className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 active:scale-98 transition-all cursor-pointer"
@@ -526,11 +679,17 @@ const SeatSelection = () => {
       <PaymentModal
         isOpen={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
+        scheduleId={scheduleId}
         trip={trip}
         seats={activeSeats}
         fare={fare}
         totalAmount={totalFare}
-        onPaymentSuccess={handleConfirmBooking}
+        passengers={passengers}
+        boardingPoint={boardingPoint}
+        droppingPoint={droppingPoint}
+        contactPhone={contactPhone}
+        contactEmail={contactEmail}
+        onPaymentSuccess={handlePaymentSuccess}
       />
     </div>
   );

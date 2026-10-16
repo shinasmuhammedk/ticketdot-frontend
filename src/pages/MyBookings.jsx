@@ -3,11 +3,12 @@ import { Link } from 'react-router-dom';
 import {
   Bus, Ticket, CheckCircle2, AlertCircle, X,
   Clock, Armchair, Hash, ChevronRight, ArrowRight, AlertTriangle,
-  RotateCcw
+  RotateCcw, Navigation, Star
 } from 'lucide-react';
 import { getMyBookings, cancelBooking } from '../api/bookings';
 import Toast from './Toast';
 import Navbar from '../components/Navbar';
+import ReviewModal from '../components/ReviewModal';
 
 const MyBookings = () => {
   const [bookings, setBookings] = useState([]);
@@ -19,6 +20,7 @@ const MyBookings = () => {
 
   const [pendingCancel, setPendingCancel] = useState(null);
   const [cancelling, setCancelling] = useState(false);
+  const [reviewingBooking, setReviewingBooking] = useState(null);
 
   useEffect(() => {
     const loadBookings = async () => {
@@ -57,6 +59,10 @@ const MyBookings = () => {
           status: (b.status || 'confirmed').toLowerCase(),
           departureTime: b.departure_time,
           arrivalTime: b.arrival_time,
+          paymentId: b.payment_id,
+          paymentStatus: b.payment_status,
+          refundId: b.refund_id,
+          refundStatus: b.refund_status,
           bookedAtFormatted: bookedAt
             ? new Date(bookedAt).toLocaleDateString('en-IN', {
                 day: '2-digit',
@@ -86,15 +92,26 @@ const MyBookings = () => {
     if (!pendingCancel) return;
     setCancelling(true);
     try {
-      await cancelBooking(pendingCancel.bookingRef);
+      const res = await cancelBooking(pendingCancel.bookingRef);
+      const cancelData = res.data?.data;
       setBookings((prev) =>
         prev.map((b) =>
           (b.booking_ref || b.id) === pendingCancel.bookingRef
-            ? { ...b, status: 'cancelled' }
+            ? {
+                ...b,
+                status: 'cancelled',
+                refund_id: cancelData?.refund_id || b.refund_id,
+                refund_amount: cancelData?.refund_amount,
+                refund_status: 'processed',
+              }
             : b
         )
       );
-      setToastMessage(`Booking ${pendingCancel.bookingRef} successfully cancelled.`);
+      if (cancelData?.refund_id) {
+        setToastMessage(`Booking cancelled. Refund of ₹${cancelData.refund_amount} initiated (Ref: ${cancelData.refund_id})`);
+      } else {
+        setToastMessage(`Booking ${pendingCancel.bookingRef} successfully cancelled.`);
+      }
       setPendingCancel(null);
     } catch (err) {
       setToastMessage(err.response?.data?.message || 'Failed to cancel booking');
@@ -231,6 +248,11 @@ const MyBookings = () => {
                         }`}>
                           {b.status}
                         </span>
+                        {b.refundId && (
+                          <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                            Refund: {b.refundId}
+                          </span>
+                        )}
                       </div>
 
                       <div className="text-lg font-extrabold text-slate-900 flex items-center gap-2">
@@ -267,6 +289,29 @@ const MyBookings = () => {
                       </div>
 
                       <div className="flex items-center gap-2">
+                        {isConfirmed && (
+                          <Link
+                            to={`/track/${b.bookingRef}`}
+                            className="px-3 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold flex items-center gap-1 transition-colors"
+                            title="Live Bus GPS Tracking"
+                          >
+                            <Navigation size={13} className="text-emerald-600 animate-pulse" />
+                            <span>Track</span>
+                          </Link>
+                        )}
+
+                        {isConfirmed && (
+                          <button
+                            type="button"
+                            onClick={() => setReviewingBooking(b)}
+                            className="px-3 py-2 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold flex items-center gap-1 transition-colors cursor-pointer"
+                            title="Rate this journey"
+                          >
+                            <Star size={13} className="text-amber-500" />
+                            <span>Rate</span>
+                          </button>
+                        )}
+
                         <Link
                           to={`/ticket/${b.bookingRef}`}
                           className="px-4 py-2 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center gap-1 transition-colors"
@@ -327,6 +372,21 @@ const MyBookings = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Review Modal */}
+      {reviewingBooking && (
+        <ReviewModal
+          isOpen={Boolean(reviewingBooking)}
+          onClose={() => setReviewingBooking(null)}
+          bookingRef={reviewingBooking.bookingRef}
+          origin={reviewingBooking.origin}
+          destination={reviewingBooking.destination}
+          operatorName={reviewingBooking.operatorName}
+          onSuccess={() => {
+            setToastMessage('Thank you! Your verified review has been submitted.');
+          }}
+        />
       )}
     </div>
   );

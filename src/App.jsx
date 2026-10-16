@@ -24,7 +24,9 @@ import MyBuses from './pages/operator/MyBuses';
 import TicketDetails from './pages/TicketDetails';
 import MyRoutes from './pages/operator/MyRoutes';
 import MySchedules from './pages/operator/MySchedules';
+import OperatorReviews from './pages/operator/OperatorReviews';
 import Profile from './pages/Profile';
+import LiveTracking from './pages/LiveTracking';
 
 
 
@@ -91,6 +93,24 @@ function App() {
                     element={
                         <ProtectedRoute>
                             <TicketDetails />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/track/:bookingRef"
+                    element={
+                        <ProtectedRoute>
+                            <LiveTracking />
+                        </ProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/track-trip/:scheduleId"
+                    element={
+                        <ProtectedRoute>
+                            <LiveTracking />
                         </ProtectedRoute>
                     }
                 />
@@ -164,6 +184,15 @@ function App() {
                     element={
                         <RoleProtectedRoute allowedRole="operator_admin">
                             <MySchedules />
+                        </RoleProtectedRoute>
+                    }
+                />
+
+                <Route
+                    path="/operator/reviews"
+                    element={
+                        <RoleProtectedRoute allowedRole="operator_admin">
+                            <OperatorReviews />
                         </RoleProtectedRoute>
                     }
                 />
