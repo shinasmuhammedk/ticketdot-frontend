@@ -4,6 +4,7 @@ import {
   Users, Percent, ShieldCheck, Armchair, AlertCircle
 } from 'lucide-react';
 import { getSeats } from '../../api/seats';
+import { formatINR } from '../../utils/formatINR';
 
 const BusOccupancyModal = ({ isOpen, onClose, schedule }) => {
   const [seats, setSeats] = useState([]);
@@ -16,6 +17,7 @@ const BusOccupancyModal = ({ isOpen, onClose, schedule }) => {
 
   const loadSeats = async () => {
     if (!scheduleId) return;
+    setSelectedSeat(null);
     setLoading(true);
     setError('');
     try {
@@ -29,10 +31,24 @@ const BusOccupancyModal = ({ isOpen, onClose, schedule }) => {
   };
 
   useEffect(() => {
-    if (isOpen && scheduleId) {
-      setSelectedSeat(null);
-      loadSeats();
-    }
+    if (!isOpen || !scheduleId) return;
+    let ignore = false;
+    getSeats(scheduleId)
+      .then((res) => {
+        if (!ignore) {
+          setSeats(res.data?.data || []);
+          setSelectedSeat(null);
+        }
+      })
+      .catch((err) => {
+        if (!ignore) setError(err.response?.data?.message || 'Failed to fetch live seat map');
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
   }, [isOpen, scheduleId]);
 
   // Sort seats logically
@@ -301,7 +317,7 @@ const BusOccupancyModal = ({ isOpen, onClose, schedule }) => {
 
               <div className="text-right">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block">Fare</span>
-                <span className="text-sm font-black text-zinc-900">₹{schedule.base_fare}</span>
+                <span className="text-sm font-black text-zinc-900">{formatINR(schedule.base_fare_paise ?? schedule.base_fare)}</span>
               </div>
             </div>
           )}

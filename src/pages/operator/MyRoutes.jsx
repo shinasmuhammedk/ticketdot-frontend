@@ -10,25 +10,30 @@ const MyRoutes = () => {
   const [error, setError] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
 
-  useEffect(() => {
-    fetchRoutes();
-  }, []);
 
-  const fetchRoutes = async () => {
-    try {
-      setLoading(true);
-      const res = await getRoutes();
-      setRoutes(res.data?.data || []);
-    } catch (err) {
-      setError(
-        err.response?.data?.message ||
-        err.response?.data?.error ||
-        'Failed to load routes'
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  useEffect(() => {
+    let ignore = false;
+    const load = async () => {
+      try {
+        const res = await getRoutes();
+        if (!ignore) setRoutes(res.data?.data || []);
+      } catch (err) {
+        if (!ignore) {
+          setError(
+            err.response?.data?.message ||
+            err.response?.data?.error ||
+            'Failed to load routes'
+          );
+        }
+      } finally {
+        if (!ignore) setLoading(false);
+      }
+    };
+    load();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const filteredRoutes = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();

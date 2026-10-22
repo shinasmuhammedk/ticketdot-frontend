@@ -6,6 +6,7 @@ import {
   RotateCcw, Navigation, Star
 } from 'lucide-react';
 import { getMyBookings, cancelBooking } from '../api/bookings';
+import { formatINR } from '../utils/formatINR';
 import Toast from './Toast';
 import Navbar from '../components/Navbar';
 import ReviewModal from '../components/ReviewModal';
@@ -55,7 +56,7 @@ const MyBookings = () => {
           origin: b.origin || 'Origin',
           destination: b.destination || 'Destination',
           seats: seatDisplay,
-          fare: b.amount != null ? b.amount : 0,
+          fare: b.amount_paise ?? b.amount ?? 0,
           status: (b.status || 'confirmed').toLowerCase(),
           departureTime: b.departure_time,
           arrivalTime: b.arrival_time,
@@ -108,7 +109,7 @@ const MyBookings = () => {
         )
       );
       if (cancelData?.refund_id) {
-        setToastMessage(`Booking cancelled. Refund of ₹${cancelData.refund_amount} initiated (Ref: ${cancelData.refund_id})`);
+        setToastMessage(`Booking cancelled. Refund of ${formatINR(cancelData.refund_amount_paise ?? cancelData.refund_amount)} initiated (Ref: ${cancelData.refund_id})`);
       } else {
         setToastMessage(`Booking ${pendingCancel.bookingRef} successfully cancelled.`);
       }
@@ -284,7 +285,7 @@ const MyBookings = () => {
                       <div>
                         <span className="text-xs text-slate-400 font-medium hidden sm:inline mr-1">Paid:</span>
                         <span className="text-xl font-black text-slate-900">
-                          ₹{Number(b.fare).toLocaleString('en-IN')}
+                          {formatINR(b.fare)}
                         </span>
                       </div>
 

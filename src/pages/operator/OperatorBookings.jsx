@@ -8,6 +8,7 @@ import {
 import { getOperatorBookings } from '../../api/operator';
 import OperatorLayout from '../../components/operator/OperatorLayout';
 import BusOccupancyModal from '../../components/operator/BusOccupancyModal';
+import { formatINR } from '../../utils/formatINR';
 
 const OperatorBookings = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -51,7 +52,7 @@ const OperatorBookings = () => {
         route: (b.origin && b.destination) ? `${b.origin} → ${b.destination}` : 'Route',
         busNumber: b.bus_number || '—',
         seat: b.seat_number || '—',
-        fare: Number(b.amount || 0),
+        fare: Number(b.amount_paise ?? b.amount ?? 0),
         status: (b.status || 'confirmed').toLowerCase(),
         bookedAt: b.confirmed_at || b.created_at,
       })),
@@ -226,7 +227,7 @@ const OperatorBookings = () => {
               Manifest Revenue
             </span>
             <p className="text-2xl font-bold tracking-tight text-zinc-900">
-              ₹{stats.totalRevenue.toLocaleString('en-IN')}
+              {formatINR(stats.totalRevenue)}
             </p>
             <p className="text-[11px] text-zinc-400 mt-0.5">Realized net value</p>
           </div>
@@ -357,7 +358,7 @@ const OperatorBookings = () => {
                           </span>
                         </td>
                         <td className="py-3.5 px-4 font-bold text-zinc-900 align-top">
-                          ₹{Number(b.fare).toLocaleString('en-IN')}
+                          {formatINR(b.fare)}
                         </td>
                         <td className="py-3.5 px-4 align-top">
                           <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
@@ -379,6 +380,7 @@ const OperatorBookings = () => {
                                 destination: b.destination,
                                 bus_number: b.busNumber,
                                 base_fare: b.fare,
+                                base_fare_paise: b.fare,
                               })}
                               className="h-7 px-2.5 rounded-lg bg-zinc-100 hover:bg-zinc-900 hover:text-white text-zinc-700 text-[11px] font-semibold transition-all inline-flex items-center gap-1 cursor-pointer shadow-2xs"
                               title="Inspect cabin seat map"

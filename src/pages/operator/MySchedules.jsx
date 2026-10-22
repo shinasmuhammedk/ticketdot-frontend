@@ -8,6 +8,7 @@ import {
 import { getSchedules, cancelSchedule } from '../../api/operator';
 import OperatorLayout from '../../components/operator/OperatorLayout';
 import BusOccupancyModal from '../../components/operator/BusOccupancyModal';
+import { formatINR } from '../../utils/formatINR';
 import Toast from '../Toast';
 
 const MySchedules = () => {
@@ -24,21 +25,33 @@ const MySchedules = () => {
   const [cancelError, setCancelError] = useState('');
   const [toastMessage, setToastMessage] = useState('');
 
-  useEffect(() => {
-    fetchSchedules();
-  }, []);
-
   const fetchSchedules = async () => {
     try {
-      setLoading(true);
       const res = await getSchedules();
       setSchedules(res.data?.data || []);
-    } catch (err) {
+    } catch {
       setError('Failed to fetch scheduled trips');
     } finally {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    let ignore = false;
+    getSchedules()
+      .then((res) => {
+        if (!ignore) setSchedules(res.data?.data || []);
+      })
+      .catch(() => {
+        if (!ignore) setError('Failed to fetch scheduled trips');
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   const handleConfirmCancel = async () => {
     if (!cancellingSchedule) return;
@@ -266,7 +279,7 @@ const MySchedules = () => {
 
                       <div className="text-right pl-4 border-l border-zinc-100">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-400 block mb-0.5">Fare</span>
-                        <span className="text-lg font-black text-zinc-900">₹{schedule.base_fare}</span>
+                        <span className="text-lg font-black text-zinc-900">{formatINR(schedule.base_fare_paise ?? schedule.base_fare)}</span>
                       </div>
 
                       <div className="flex items-center gap-1.5 pl-2">

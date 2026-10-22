@@ -7,6 +7,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { getCurrentUser } from '../api/auth';
 import { getMyBookings } from '../api/bookings';
 import { getCities } from '../api/buses';
+import { formatINR } from '../utils/formatINR';
 import Navbar from '../components/Navbar';
 
 const POPULAR_ROUTES = [
@@ -33,8 +34,8 @@ const Dashboard = () => {
   const [recentBookings, setRecentBookings] = useState([]);
   const [bookingsLoading, setBookingsLoading] = useState(true);
 
-  const todayStr = new Date().toISOString().split('T')[0];
-  const tomorrowStr = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+  const [todayStr] = useState(() => new Date().toISOString().split('T')[0]);
+  const [tomorrowStr] = useState(() => new Date(Date.now() + 86400000).toISOString().split('T')[0]);
 
   const handleSearch = (e) => {
     if (e) e.preventDefault();
@@ -369,7 +370,7 @@ const Dashboard = () => {
 
                     <div className="mt-3 pt-3 border-t border-slate-200/60 flex items-center justify-between">
                       <span className="text-sm font-black text-slate-900">
-                        ₹{Number(b.amount || 0).toLocaleString('en-IN')}
+                        {formatINR(b.amount_paise ?? b.amount)}
                       </span>
                       <Link
                         to={`/ticket/${b.booking_ref}`}

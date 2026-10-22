@@ -54,8 +54,9 @@ const Login = () => {
             }
 
             localStorage.setItem("token", token);
-
-            console.log("SAVED TOKEN:", localStorage.getItem("token"));
+            if (res.data.refresh_token || res.data.data?.refresh_token) {
+                localStorage.setItem("refresh_token", res.data.refresh_token || res.data.data?.refresh_token);
+            }
 
 
 

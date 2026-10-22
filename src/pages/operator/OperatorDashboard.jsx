@@ -9,6 +9,7 @@ import { getDashboardStats, getAnalytics } from '../../api/operator';
 import OperatorLayout from '../../components/operator/OperatorLayout';
 import RevenueTimelineChart from '../../components/operator/RevenueTimelineChart';
 import RouteFleetAnalytics from '../../components/operator/RouteFleetAnalytics';
+import { formatINR } from '../../utils/formatINR';
 
 const OperatorDashboard = () => {
   const [statsData, setStatsData] = useState({
@@ -48,7 +49,6 @@ const OperatorDashboard = () => {
 
   // Fetch analytics for period
   const fetchAnalyticsData = useCallback(async (selectedPeriod) => {
-    setLoadingAnalytics(true);
     try {
       const res = await getAnalytics(selectedPeriod);
       if (res.data?.data) {
@@ -61,19 +61,58 @@ const OperatorDashboard = () => {
     }
   }, []);
 
-  // Initial load
+  // Initial load of stats
   useEffect(() => {
-    fetchStats();
-  }, [fetchStats]);
+    let ignore = false;
+    getDashboardStats()
+      .then((res) => {
+        if (!ignore && res.data?.data) {
+          setStatsData(res.data.data);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load dashboard stats:', err);
+      })
+      .finally(() => {
+        if (!ignore) setLoadingStats(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   // Load analytics when period changes
   useEffect(() => {
-    fetchAnalyticsData(period);
-  }, [period, fetchAnalyticsData]);
+    let ignore = false;
+    getAnalytics(period)
+      .then((res) => {
+        if (!ignore && res.data?.data) {
+          setAnalyticsData(res.data.data);
+        }
+      })
+      .catch((err) => {
+        console.error('Failed to load analytics:', err);
+      })
+      .finally(() => {
+        if (!ignore) setLoadingAnalytics(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, [period]);
+
+  const handlePeriodChange = (newPeriod) => {
+    if (newPeriod !== period) {
+      setLoadingAnalytics(true);
+      setPeriod(newPeriod);
+    }
+  };
 
   // Manual refresh
   const handleRefresh = async () => {
     setIsRefreshing(true);
+    setLoadingStats(true);
+    setLoadingAnalytics(true);
     await Promise.all([fetchStats(), fetchAnalyticsData(period)]);
     setIsRefreshing(false);
   };
@@ -109,7 +148,7 @@ const OperatorDashboard = () => {
     },
     {
       label: 'Lifetime Revenue',
-      value: loadingStats ? '—' : `₹${Number(statsData.total_revenue || 0).toLocaleString('en-IN')}`,
+      value: loadingStats ? '—' : formatINR(statsData.total_revenue_paise ?? statsData.total_revenue),
       desc: 'All-time gross earnings',
       icon: IndianRupee,
       path: '/operator/bookings',
@@ -213,7 +252,7 @@ const OperatorDashboard = () => {
             <div className="flex items-center gap-1 p-1 bg-zinc-100 rounded-xl self-start sm:self-auto border border-zinc-200/60">
               <button
                 type="button"
-                onClick={() => setPeriod('7d')}
+                onClick={() => handlePeriodChange('7d')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                   period === '7d'
                     ? 'bg-white text-zinc-900 shadow-xs'
@@ -224,7 +263,7 @@ const OperatorDashboard = () => {
               </button>
               <button
                 type="button"
-                onClick={() => setPeriod('30d')}
+                onClick={() => handlePeriodChange('30d')}
                 className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
                   period === '30d'
                     ? 'bg-white text-zinc-900 shadow-xs'
@@ -246,7 +285,7 @@ const OperatorDashboard = () => {
                 <IndianRupee size={15} className="text-zinc-500" />
               </div>
               <p className="text-2xl font-bold tracking-tight text-zinc-900">
-                {loadingAnalytics ? '—' : `₹${Number(analyticsData.total_revenue || 0).toLocaleString('en-IN')}`}
+                {loadingAnalytics ? '—' : formatINR(analyticsData.total_revenue_paise ?? analyticsData.total_revenue)}
               </p>
               <p className="text-[11px] text-zinc-400 mt-1 font-medium">
                 Confirmed bookings revenue
@@ -276,7 +315,7 @@ const OperatorDashboard = () => {
                 <Percent size={15} className="text-zinc-500" />
               </div>
               <p className="text-2xl font-bold tracking-tight text-zinc-900">
-                {loadingAnalytics ? '—' : `₹${Math.round(analyticsData.average_ticket_price || 0).toLocaleString('en-IN')}`}
+                {loadingAnalytics ? '—' : formatINR(analyticsData.avg_ticket_price_paise ?? analyticsData.average_ticket_price)}
               </p>
               <p className="text-[11px] text-zinc-400 mt-1 font-medium">
                 Average price realized per seat

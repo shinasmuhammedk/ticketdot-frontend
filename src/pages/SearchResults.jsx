@@ -123,8 +123,8 @@ const SearchResults = () => {
 
       return true;
     }).sort((a, b) => {
-      if (sortBy === 'price_asc') return (a.base_fare || 0) - (b.base_fare || 0);
-      if (sortBy === 'price_desc') return (b.base_fare || 0) - (a.base_fare || 0);
+      if (sortBy === 'price_asc') return (a.base_fare_paise || a.base_fare || 0) - (b.base_fare_paise || b.base_fare || 0);
+      if (sortBy === 'price_desc') return (b.base_fare_paise || b.base_fare || 0) - (a.base_fare_paise || a.base_fare || 0);
       // default: departure time
       return new Date(a.departure_time) - new Date(b.departure_time);
     });
@@ -335,7 +335,7 @@ const SearchResults = () => {
                     departureTime={bus.departure_time}
                     arrivalTime={bus.arrival_time}
                     availableSeats={bus.available_seats}
-                    fare={bus.base_fare}
+                    fare={bus.base_fare_paise || bus.base_fare}
                     rating={bus.rating}
                     reviewCount={bus.review_count}
                     onOpenReviews={(b) => setSelectedBusForReviews(b)}

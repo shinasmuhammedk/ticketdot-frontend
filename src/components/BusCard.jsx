@@ -1,6 +1,7 @@
 import React from 'react';
 import { Bus, Clock, Armchair, ChevronRight, Star, Wifi, Zap, Wind } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { formatINR } from '../utils/formatINR';
 
 const BusCard = ({
     scheduleID,
@@ -126,7 +127,7 @@ const BusCard = ({
                     <div className="flex flex-col items-start lg:items-end lg:mb-3">
                         <div className="flex items-baseline gap-1">
                             <span className="text-2xl font-black text-slate-900 tracking-tight">
-                                ₹{Number(fare || 0).toLocaleString('en-IN')}
+                                {formatINR(fare)}
                             </span>
                             <span className="text-xs text-slate-400 font-medium">/ seat</span>
                         </div>

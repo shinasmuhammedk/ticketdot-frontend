@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Bus, Route, CalendarDays, Ticket,
   LogOut, Compass, ExternalLink, Menu, X, ChevronRight, User, Star
 } from 'lucide-react';
 import { getCurrentUser } from '../../api/auth';
+import api from '../../api/axiosInstance';
 
 const NAV_ITEMS = [
   { label: 'Overview', path: '/operator/dashboard', icon: LayoutDashboard },
@@ -19,13 +20,16 @@ const OperatorLayout = ({ title, subtitle, action, children }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    try {
+      const cached = localStorage.getItem('user');
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  });
 
   useEffect(() => {
-    const cached = localStorage.getItem('user');
-    if (cached) {
-      try { setUser(JSON.parse(cached)); } catch (e) {}
-    }
     getCurrentUser()
       .then((res) => {
         if (res.data?.user) {
@@ -33,13 +37,25 @@ const OperatorLayout = ({ title, subtitle, action, children }) => {
           localStorage.setItem('user', JSON.stringify(res.data.user));
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        // Ignored
+      });
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/login');
+  const handleLogout = async () => {
+    const refreshToken = localStorage.getItem('refresh_token');
+    try {
+      if (refreshToken) {
+        await api.post('/auth/logout', { refresh_token: refreshToken });
+      }
+    } catch {
+      // Ignored
+    } finally {
+      localStorage.removeItem('token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+      navigate('/login');
+    }
   };
 
   const isActive = (path) => {

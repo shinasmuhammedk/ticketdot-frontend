@@ -54,7 +54,6 @@ const Signup = () => {
                 name,
                 email,
                 password,
-                role: 'passenger',
             });
 
             navigate('/login');

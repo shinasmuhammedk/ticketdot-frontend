@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { IndianRupee, Ticket, TrendingUp, BarChart3, LineChart } from 'lucide-react';
+import { formatINR } from '../../utils/formatINR';
 
 const RevenueTimelineChart = ({ dailyData = [] }) => {
   const [chartMode, setChartMode] = useState('revenue'); // 'revenue' | 'tickets'
@@ -25,7 +26,7 @@ const RevenueTimelineChart = ({ dailyData = [] }) => {
   const chartHeight = height - paddingTop - paddingBottom;
 
   // Max values
-  const maxRevenue = Math.max(...dailyData.map((d) => d.revenue || 0), 100);
+  const maxRevenue = Math.max(...dailyData.map((d) => d.revenue_paise ?? d.revenue ?? 0), 10000);
   const maxTickets = Math.max(...dailyData.map((d) => d.tickets_sold || 0), 10);
   const activeMax = chartMode === 'revenue' ? maxRevenue : maxTickets;
 
@@ -45,7 +46,7 @@ const RevenueTimelineChart = ({ dailyData = [] }) => {
 
   // Calculate points for line/area
   const points = dailyData.map((d, i) => {
-    const val = chartMode === 'revenue' ? (d.revenue || 0) : (d.tickets_sold || 0);
+    const val = chartMode === 'revenue' ? (d.revenue_paise ?? d.revenue ?? 0) : (d.tickets_sold || 0);
     const x = dailyData.length === 1 
       ? width / 2 
       : paddingX + (i / (dailyData.length - 1)) * chartWidth;
@@ -76,7 +77,7 @@ const RevenueTimelineChart = ({ dailyData = [] }) => {
     pct,
     y: paddingTop + chartHeight - pct * chartHeight,
     val: chartMode === 'revenue'
-      ? `₹${Math.round(activeMax * pct).toLocaleString('en-IN')}`
+      ? formatINR(Math.round(activeMax * pct))
       : `${Math.round(activeMax * pct)}`,
   }));
 
@@ -278,7 +279,7 @@ const RevenueTimelineChart = ({ dailyData = [] }) => {
                   <IndianRupee size={11} /> Revenue:
                 </span>
                 <span className="font-bold text-white">
-                  ₹{Number(activePoint.item.revenue || 0).toLocaleString('en-IN')}
+                  {formatINR(activePoint.item.revenue_paise ?? activePoint.item.revenue ?? 0)}
                 </span>
               </div>
               <div className="flex items-center justify-between gap-3 mt-0.5">

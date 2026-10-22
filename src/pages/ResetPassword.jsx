@@ -21,6 +21,7 @@ const ResetPassword = () => {
 
   useEffect(() => {
     if (tokenFromUrl) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- sync token state when URL search parameter changes
       setToken(tokenFromUrl);
     }
   }, [tokenFromUrl]);

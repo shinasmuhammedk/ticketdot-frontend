@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { getBookingDetails } from '../api/bookings';
 import { generatePdfTicket } from '../utils/generatePdfTicket';
+import { formatINR } from '../utils/formatINR';
 import Toast from './Toast';
 import Navbar from '../components/Navbar';
 
@@ -15,15 +16,13 @@ const BookingSuccess = () => {
 
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(Boolean(ref));
-  const [error, setError] = useState('');
+  const [error, setError] = useState(() => (ref ? '' : 'No booking reference provided'));
   const [toastMessage, setToastMessage] = useState('');
   const [copied, setCopied] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
 
   useEffect(() => {
     if (!ref) {
-      setError('No booking reference provided');
-      setLoading(false);
       return;
     }
 
@@ -71,9 +70,7 @@ const BookingSuccess = () => {
     ? booking.seats.join(', ')
     : (booking?.seat_number || searchParams.get('seat') || '-');
 
-  const displayAmount = booking?.amount != null
-    ? booking.amount
-    : (searchParams.get('fare') || 0);
+  const displayAmount = booking?.amount_paise ?? booking?.amount ?? (searchParams.get('fare') || 0);
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
@@ -204,7 +201,7 @@ const BookingSuccess = () => {
 
               <div className="pt-3 border-t border-slate-200/70 flex justify-between items-baseline">
                 <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Paid</span>
-                <span className="text-2xl font-black text-slate-900">₹{Number(displayAmount || 0).toLocaleString('en-IN')}</span>
+                <span className="text-2xl font-black text-slate-900">{formatINR(displayAmount)}</span>
               </div>
 
               {/* Verified Payment Strip */}

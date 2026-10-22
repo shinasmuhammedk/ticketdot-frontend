@@ -13,6 +13,9 @@ export const getPaymentStatus = (orderId) => {
 };
 
 export const getTestSignature = (orderId, paymentId) => {
+  if (import.meta.env.PROD) {
+    return Promise.reject(new Error('Test signature helper is disabled in production builds'));
+  }
   return api.post('/payments/test-signature', {
     order_id: orderId,
     payment_id: paymentId,

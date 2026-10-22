@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { Route, Bus, Users, IndianRupee, ArrowRight, Percent, Award } from 'lucide-react';
+import { formatINR } from '../../utils/formatINR';
 
 const RouteFleetAnalytics = ({ routeOccupancy = [], busUtilization = [] }) => {
+  const safeRouteOccupancy = Array.isArray(routeOccupancy) ? routeOccupancy : [];
+  const safeBusUtilization = Array.isArray(busUtilization) ? busUtilization : [];
   const [activeTab, setActiveTab] = useState('routes'); // 'routes' | 'fleet'
 
   return (
@@ -14,7 +17,7 @@ const RouteFleetAnalytics = ({ routeOccupancy = [], busUtilization = [] }) => {
               {activeTab === 'routes' ? 'Corridor Occupancy & Yield' : 'Fleet Vehicle Utilization'}
             </span>
             <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-zinc-100 text-zinc-600">
-              {activeTab === 'routes' ? `${routeOccupancy.length} Routes` : `${busUtilization.length} Vehicles`}
+              {activeTab === 'routes' ? `${safeRouteOccupancy.length} Routes` : `${safeBusUtilization.length} Vehicles`}
             </span>
           </div>
           <p className="text-xs text-zinc-500 mt-0.5">
@@ -56,7 +59,7 @@ const RouteFleetAnalytics = ({ routeOccupancy = [], busUtilization = [] }) => {
       {/* Tab: Routes Occupancy */}
       {activeTab === 'routes' && (
         <div>
-          {routeOccupancy.length === 0 ? (
+          {safeRouteOccupancy.length === 0 ? (
             <div className="h-44 flex flex-col items-center justify-center text-zinc-400 bg-zinc-50/50 rounded-xl border border-dashed border-zinc-200">
               <Route size={24} className="mb-2 text-zinc-300 stroke-[1.5]" />
               <p className="text-xs font-semibold text-zinc-600">No route performance data yet</p>
@@ -64,7 +67,7 @@ const RouteFleetAnalytics = ({ routeOccupancy = [], busUtilization = [] }) => {
             </div>
           ) : (
             <div className="divide-y divide-zinc-100">
-              {routeOccupancy.map((r, idx) => {
+              {safeRouteOccupancy.map((r, idx) => {
                 const rate = Math.min(Math.round(r.occupancy_rate || 0), 100);
                 const isHigh = rate >= 75;
                 const isMid = rate >= 40 && rate < 75;
@@ -90,7 +93,7 @@ const RouteFleetAnalytics = ({ routeOccupancy = [], busUtilization = [] }) => {
                         <div className="text-right">
                           <span className="text-[11px] text-zinc-400 block font-normal">Revenue</span>
                           <span className="font-bold text-zinc-900">
-                            ₹{Number(r.revenue || 0).toLocaleString('en-IN')}
+                            {formatINR(r.total_revenue_paise ?? r.revenue)}
                           </span>
                         </div>
                         <div className="text-right min-w-[70px]">
@@ -139,7 +142,7 @@ const RouteFleetAnalytics = ({ routeOccupancy = [], busUtilization = [] }) => {
       {/* Tab: Fleet Assets Utilization */}
       {activeTab === 'fleet' && (
         <div>
-          {busUtilization.length === 0 ? (
+          {safeBusUtilization.length === 0 ? (
             <div className="h-44 flex flex-col items-center justify-center text-zinc-400 bg-zinc-50/50 rounded-xl border border-dashed border-zinc-200">
               <Bus size={24} className="mb-2 text-zinc-300 stroke-[1.5]" />
               <p className="text-xs font-semibold text-zinc-600">No fleet utilization data yet</p>
@@ -147,7 +150,7 @@ const RouteFleetAnalytics = ({ routeOccupancy = [], busUtilization = [] }) => {
             </div>
           ) : (
             <div className="divide-y divide-zinc-100">
-              {busUtilization.map((b, idx) => {
+              {safeBusUtilization.map((b, idx) => {
                 const util = Math.min(Math.round(b.utilization_rate || 0), 100);
                 const isHigh = util >= 75;
                 const isMid = util >= 40 && util < 75;
@@ -178,7 +181,7 @@ const RouteFleetAnalytics = ({ routeOccupancy = [], busUtilization = [] }) => {
                         <div className="text-right">
                           <span className="text-[11px] text-zinc-400 block font-normal">Yield</span>
                           <span className="font-bold text-zinc-900">
-                            ₹{Number(b.revenue || 0).toLocaleString('en-IN')}
+                            {formatINR(b.total_revenue_paise ?? b.revenue)}
                           </span>
                         </div>
                         <div className="text-right min-w-[70px]">

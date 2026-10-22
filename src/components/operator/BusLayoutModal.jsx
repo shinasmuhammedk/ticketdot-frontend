@@ -12,6 +12,7 @@ const BusLayoutModal = ({ isOpen, onClose, bus }) => {
 
   const loadLayout = async () => {
     if (!busId) return;
+    setSelectedSeat(null);
     setLoading(true);
     setError('');
     try {
@@ -25,10 +26,24 @@ const BusLayoutModal = ({ isOpen, onClose, bus }) => {
   };
 
   useEffect(() => {
-    if (isOpen && busId) {
-      setSelectedSeat(null);
-      loadLayout();
-    }
+    if (!isOpen || !busId) return;
+    let ignore = false;
+    getBusLayout(busId)
+      .then((res) => {
+        if (!ignore) {
+          setLayout(res.data?.data || []);
+          setSelectedSeat(null);
+        }
+      })
+      .catch((err) => {
+        if (!ignore) setError(err.response?.data?.message || 'Failed to fetch vehicle seat layout');
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
   }, [isOpen, busId]);
 
   const sortedSeats = useMemo(() => {

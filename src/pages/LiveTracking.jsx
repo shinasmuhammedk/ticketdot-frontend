@@ -65,7 +65,6 @@ const LiveTracking = () => {
   // Load telemetry data
   const fetchTelemetry = async (silent = false) => {
     try {
-      if (!silent) setLoading(true);
       const res = await getTripTracking(identifier);
       setTrip(res.data.data);
       setError('');
@@ -78,7 +77,25 @@ const LiveTracking = () => {
   };
 
   useEffect(() => {
-    fetchTelemetry(false);
+    let ignore = false;
+    getTripTracking(identifier)
+      .then((res) => {
+        if (!ignore) {
+          setTrip(res.data.data);
+          setError('');
+        }
+      })
+      .catch((err) => {
+        if (!ignore) {
+          setError(err.response?.data?.message || err.message || 'Failed to fetch trip tracking data');
+        }
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
   }, [identifier]);
 
   // Periodic polling every 4 seconds when trip is active
@@ -304,7 +321,10 @@ const LiveTracking = () => {
             </button>
 
             <button
-              onClick={() => fetchTelemetry(false)}
+              onClick={() => {
+                setLoading(true);
+                fetchTelemetry(false);
+              }}
               disabled={loading}
               className="p-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
               title="Refresh now"

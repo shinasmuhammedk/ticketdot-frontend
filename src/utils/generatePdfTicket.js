@@ -1,5 +1,6 @@
 import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
+import { formatINR } from './formatINR';
 
 export const generatePdfTicket = async (ticket) => {
   if (!ticket) return;
@@ -185,7 +186,7 @@ export const generatePdfTicket = async (ticket) => {
   doc.setFontSize(16);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(6, 95, 70);
-  const totalAmountStr = `₹${Number(ticket.amount || 0).toLocaleString('en-IN')}`;
+  const totalAmountStr = formatINR(ticket.amount_paise ?? ticket.amount);
   doc.text(totalAmountStr, pageWidth - margin - 6, curY + 13, { align: 'right' });
 
   curY += 25;

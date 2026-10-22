@@ -46,8 +46,6 @@ const MyBuses = () => {
 
   const loadBuses = async () => {
     try {
-      setLoading(true);
-      setError('');
       const res = await getBuses();
       setBuses(res.data?.data || []);
     } catch (err) {
@@ -62,7 +60,26 @@ const MyBuses = () => {
   };
 
   useEffect(() => {
-    loadBuses();
+    let ignore = false;
+    getBuses()
+      .then((res) => {
+        if (!ignore) setBuses(res.data?.data || []);
+      })
+      .catch((err) => {
+        if (!ignore) {
+          setError(
+            err.response?.data?.message ||
+            err.response?.data?.error ||
+            'Failed to load fleet buses'
+          );
+        }
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   // Filtered buses

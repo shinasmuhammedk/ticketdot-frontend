@@ -1,24 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Bus, User, LogOut, Ticket, Compass, LayoutDashboard, ChevronDown } from 'lucide-react';
 import { getCurrentUser } from '../api/auth';
+import api from '../api/axiosInstance';
 
 const Navbar = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(() => {
+    try {
+      const cachedUser = localStorage.getItem('user');
+      return cachedUser ? JSON.parse(cachedUser) : null;
+    } catch {
+      return null;
+    }
+  });
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
   useEffect(() => {
-    // Try localStorage first for instant render
-    const cachedUser = localStorage.getItem('user');
-    if (cachedUser) {
-      try {
-        setUser(JSON.parse(cachedUser));
-      } catch (e) {}
-    }
-
-    // Refresh from API
+    // Refresh user from API
     getCurrentUser()
       .then((res) => {
         if (res.data?.user) {
@@ -26,13 +26,25 @@ const Navbar = () => {
           localStorage.setItem('user', JSON.stringify(res.data.user));
         }
       })
-      .catch(() => {});
+      .catch(() => {
+        // Ignored
+      });
   }, []);
 
-  const handleLogout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
-    navigate('/login');
+  const handleLogout = async () => {
+    const refreshToken = localStorage.getItem('refresh_token');
+    try {
+      if (refreshToken) {
+        await api.post('/auth/logout', { refresh_token: refreshToken });
+      }
+    } catch {
+      // Ignored
+    } finally {
+      localStorage.removeItem('token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+      navigate('/login');
+    }
   };
 
   const isActive = (path) => location.pathname === path;

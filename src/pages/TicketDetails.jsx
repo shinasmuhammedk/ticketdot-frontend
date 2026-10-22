@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { getBookingDetails, cancelBooking, emailBookingTicket } from '../api/bookings';
 import { getBookingReview } from '../api/reviews';
 import { generatePdfTicket } from '../utils/generatePdfTicket';
+import { formatINR } from '../utils/formatINR';
 import {
   ArrowLeft, Bus, Armchair, Hash, Clock, CheckCircle2,
   XCircle, AlertCircle, User, CreditCard, Calendar,
@@ -99,7 +100,7 @@ const TicketDetails = () => {
         payment_status: 'refunded',
       }));
       if (cancelData?.refund_id) {
-        setToastMessage(`Booking cancelled. Refund of ₹${cancelData.refund_amount} initiated (Ref: ${cancelData.refund_id})`);
+        setToastMessage(`Booking cancelled. Refund of ${formatINR(cancelData.refund_amount_paise ?? cancelData.refund_amount)} initiated (Ref: ${cancelData.refund_id})`);
       } else {
         setToastMessage('Booking successfully cancelled. Seats have been released.');
       }
@@ -412,7 +413,7 @@ const TicketDetails = () => {
               <div>
                 <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">Total Paid</span>
                 <p className="text-base font-black text-slate-900 mt-0.5">
-                  ₹{Number(ticket.amount || 0).toLocaleString('en-IN')}
+                  {formatINR(ticket.amount_paise ?? ticket.amount)}
                 </p>
               </div>
             </div>
@@ -443,7 +444,7 @@ const TicketDetails = () => {
               {(ticket.refund_id || isCancelled) && (
                 <div className="text-left sm:text-right bg-white sm:bg-transparent p-2.5 sm:p-0 rounded-xl border border-amber-200 sm:border-0">
                   <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wider block">
-                    Refund Processed (₹{ticket.refund_amount || ticket.amount})
+                    Refund Processed ({formatINR(ticket.refund_amount_paise ?? ticket.refund_amount ?? ticket.amount_paise ?? ticket.amount)})
                   </span>
                   <span className="text-xs font-mono font-bold text-slate-900">
                     Ref: {ticket.refund_id || `rfnd_${ticket.booking_ref}`}

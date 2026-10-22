@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { Link, useSearchParams, useNavigate } from 'react-router-dom';
 import { getSeats } from '../api/seats';
 import { getBusDetails } from '../api/buses';
@@ -12,6 +12,7 @@ import { lockSeat, confirmBooking, releaseSeats } from '../api/bookings';
 import Toast from './Toast';
 import Navbar from '../components/Navbar';
 import PaymentModal from '../components/PaymentModal';
+import { formatINR } from '../utils/formatINR';
 
 const SeatSelection = () => {
   const [searchParams] = useSearchParams();
@@ -38,9 +39,23 @@ const SeatSelection = () => {
   const [droppingPoint, setDroppingPoint] = useState('');
 
   // Per-seat passenger details & contact info
-  const [passengers, setPassengers] = useState([]);
-  const [contactPhone, setContactPhone] = useState('');
-  const [contactEmail, setContactEmail] = useState('');
+  const [passengerDetails, setPassengerDetails] = useState({});
+  const [contactPhone, setContactPhone] = useState(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || '{}');
+      return u.phone || '';
+    } catch {
+      return '';
+    }
+  });
+  const [contactEmail, setContactEmail] = useState(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('user') || '{}');
+      return u.email || '';
+    } catch {
+      return '';
+    }
+  });
 
   const userLockedSeatsRef = useRef(userLockedSeats);
   const scheduleIdRef = useRef(scheduleId);
@@ -54,36 +69,30 @@ const SeatSelection = () => {
     scheduleIdRef.current = scheduleId;
   }, [scheduleId]);
 
-  // Sync passengers list whenever userLockedSeats changes
-  useEffect(() => {
-    if (userLockedSeats.length > 0) {
-      const cachedUser = (() => {
-        try {
-          return JSON.parse(localStorage.getItem('user') || '{}');
-        } catch {
-          return {};
-        }
-      })();
-
-      if (cachedUser.email && !contactEmail) setContactEmail(cachedUser.email);
-      if (cachedUser.phone && !contactPhone) setContactPhone(cachedUser.phone);
-
-      setPassengers((prev) => {
-        return userLockedSeats.map((seatNum, idx) => {
-          const existing = prev.find((p) => p.seat_number === seatNum);
-          if (existing) return existing;
-          return {
-            seat_number: seatNum,
-            name: idx === 0 ? (cachedUser.name || '') : '',
-            age: '',
-            gender: 'Male',
-          };
-        });
-      });
-    } else {
-      setPassengers([]);
+  // Derive passenger rows directly from userLockedSeats and passengerDetails
+  const passengers = useMemo(() => {
+    if (!userLockedSeats || userLockedSeats.length === 0) {
+      return [];
     }
-  }, [userLockedSeats]);
+
+    const cachedUser = (() => {
+      try {
+        return JSON.parse(localStorage.getItem('user') || '{}');
+      } catch {
+        return {};
+      }
+    })();
+
+    return userLockedSeats.map((seatNum, idx) => {
+      const existing = passengerDetails[seatNum];
+      return {
+        seat_number: seatNum,
+        name: existing?.name !== undefined ? existing.name : (idx === 0 ? (cachedUser.name || '') : ''),
+        age: existing?.age !== undefined ? existing.age : '',
+        gender: existing?.gender || 'Male',
+      };
+    });
+  }, [userLockedSeats, passengerDetails]);
 
   // Release locks on component unmount (if not confirmed)
   useEffect(() => {
@@ -155,15 +164,12 @@ const SeatSelection = () => {
   // Countdown timer for locked seats
   useEffect(() => {
     if (!lockExpires) {
-      setCountdown(0);
       return;
     }
 
     const calcRemaining = () => {
       return Math.max(0, Math.floor((new Date(lockExpires).getTime() - Date.now()) / 1000));
     };
-
-    setCountdown(calcRemaining());
 
     const interval = setInterval(() => {
       const remaining = calcRemaining();
@@ -173,6 +179,7 @@ const SeatSelection = () => {
         clearInterval(interval);
         setUserLockedSeats([]);
         setLockExpires(null);
+        setCountdown(0);
         loadSeats();
         setToastMessage('Seat lock expired. Please select and lock seats again.');
       }
@@ -181,7 +188,7 @@ const SeatSelection = () => {
     return () => clearInterval(interval);
   }, [lockExpires]);
 
-  const fare = trip?.base_fare || paramFare || 0;
+  const fare = trip?.base_fare_paise ?? trip?.base_fare ?? paramFare ?? 0;
   const isLockedState = userLockedSeats.length > 0;
   const activeSeats = isLockedState ? userLockedSeats : selectedSeats;
   const totalFare = activeSeats.length * fare;
@@ -240,6 +247,9 @@ const SeatSelection = () => {
 
       setUserLockedSeats(selectedSeats);
       setLockExpires(expiry);
+      if (expiry) {
+        setCountdown(Math.max(0, Math.floor((new Date(expiry).getTime() - Date.now()) / 1000)));
+      }
       setSelectedSeats([]);
       setToastMessage(`Seats locked! Fill passenger details to complete your reservation.`);
 
@@ -259,6 +269,7 @@ const SeatSelection = () => {
       await releaseSeats(scheduleId, userLockedSeats);
       setUserLockedSeats([]);
       setLockExpires(null);
+      setCountdown(0);
       await loadSeats();
       setToastMessage('Released held seats.');
     } catch (err) {
@@ -269,14 +280,16 @@ const SeatSelection = () => {
   };
 
   const handlePassengerChange = (seatNumber, field, value) => {
-    setPassengers((prev) =>
-      prev.map((p) => {
-        if (p.seat_number === seatNumber) {
-          return { ...p, [field]: value };
-        }
-        return p;
-      })
-    );
+    setPassengerDetails((prev) => {
+      const current = prev[seatNumber] || {};
+      return {
+        ...prev,
+        [seatNumber]: {
+          ...current,
+          [field]: value,
+        },
+      };
+    });
   };
 
   const handleOpenPaymentModal = () => {
@@ -384,7 +397,7 @@ const SeatSelection = () => {
               </div>
               <div>
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Base Fare</p>
-                <p className="text-xl font-black text-indigo-600">₹{fare}</p>
+                <p className="text-xl font-black text-indigo-600">{formatINR(fare)}</p>
               </div>
             </div>
           </div>
@@ -611,8 +624,8 @@ const SeatSelection = () => {
                 {/* Pricing Breakdown */}
                 <div className="pt-4 border-t border-slate-100 space-y-2">
                   <div className="flex justify-between text-xs text-slate-500">
-                    <span>Fare ({activeSeats.length} seat{activeSeats.length !== 1 ? 's' : ''} × ₹{fare})</span>
-                    <span className="font-semibold text-slate-700">₹{totalFare}</span>
+                    <span>Fare ({activeSeats.length} seat{activeSeats.length !== 1 ? 's' : ''} × {formatINR(fare)})</span>
+                    <span className="font-semibold text-slate-700">{formatINR(totalFare)}</span>
                   </div>
                   <div className="flex justify-between text-xs text-slate-500">
                     <span>Taxes & Operator fees</span>
@@ -620,7 +633,7 @@ const SeatSelection = () => {
                   </div>
                   <div className="flex justify-between items-baseline pt-2 border-t border-slate-100">
                     <span className="text-sm font-bold text-slate-900">Total Payable</span>
-                    <span className="text-3xl font-black text-slate-900">₹{totalFare}</span>
+                    <span className="text-3xl font-black text-slate-900">{formatINR(totalFare)}</span>
                   </div>
                 </div>
               </div>
@@ -648,7 +661,7 @@ const SeatSelection = () => {
                       className="w-full h-12 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-md shadow-emerald-600/20 active:scale-98 transition-all cursor-pointer"
                     >
                       <CreditCard size={16} />
-                      {actionLoading ? 'Confirming...' : `Proceed to Payment (₹${totalFare})`}
+                      {actionLoading ? 'Confirming...' : `Proceed to Payment (${formatINR(totalFare)})`}
                     </button>
 
                     <button

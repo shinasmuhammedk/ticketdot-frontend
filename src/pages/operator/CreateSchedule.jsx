@@ -6,7 +6,21 @@ import {
 } from 'lucide-react';
 import { createSchedule, getRoutes, getBuses } from '../../api/operator';
 import OperatorLayout from '../../components/operator/OperatorLayout';
+import { formatINR, rupeesToPaise } from '../../utils/formatINR';
 import Toast from '../Toast';
+
+// Pre-calculate sensible default future times (today + 2 hours and + 6 hours)
+const getDefaultDepTime = () => {
+  const d = new Date(Date.now() + 2 * 3600000);
+  d.setMinutes(0, 0, 0);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+};
+
+const getDefaultArrTime = () => {
+  const d = new Date(Date.now() + 6 * 3600000);
+  d.setMinutes(0, 0, 0);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+};
 
 const CreateSchedule = () => {
   const navigate = useNavigate();
@@ -19,31 +33,18 @@ const CreateSchedule = () => {
   const [loading, setLoading] = useState(false);
   const [fetchingData, setFetchingData] = useState(true);
 
-  // Pre-calculate sensible default future times (today + 2 hours and + 6 hours)
-  const getDefaultDepTime = () => {
-    const d = new Date(Date.now() + 2 * 3600000);
-    d.setMinutes(0, 0, 0);
-    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-  };
-
-  const getDefaultArrTime = () => {
-    const d = new Date(Date.now() + 6 * 3600000);
-    d.setMinutes(0, 0, 0);
-    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
-  };
-
   const [routeId, setRouteId] = useState(preselectedRouteId);
   const [busId, setBusId] = useState(preselectedBusId);
-  const [departureTime, setDepartureTime] = useState(getDefaultDepTime());
-  const [arrivalTime, setArrivalTime] = useState(getDefaultArrTime());
+  const [departureTime, setDepartureTime] = useState(getDefaultDepTime);
+  const [arrivalTime, setArrivalTime] = useState(getDefaultArrTime);
   const [baseFare, setBaseFare] = useState('');
 
   const [fieldErrors, setFieldErrors] = useState({});
   const [toastMessage, setToastMessage] = useState('');
 
-  const nowLocalIso = new Date(Date.now() - new Date().getTimezoneOffset() * 60000)
-    .toISOString()
-    .slice(0, 16);
+  const [nowLocalIso] = useState(() =>
+    new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 16)
+  );
 
   useEffect(() => {
     const fetchData = async () => {
@@ -83,10 +84,10 @@ const CreateSchedule = () => {
     return `${hours}h ${mins > 0 ? `${mins}m` : ''}`;
   }, [departureTime, arrivalTime]);
 
-  const potentialRevenue = useMemo(() => {
+  const potentialRevenuePaise = useMemo(() => {
     const fare = Number(baseFare);
     if (!selectedBus?.total_seats || !fare || fare <= 0) return null;
-    return fare * selectedBus.total_seats;
+    return rupeesToPaise(baseFare) * selectedBus.total_seats;
   }, [selectedBus, baseFare]);
 
   const validate = () => {
@@ -306,7 +307,7 @@ const CreateSchedule = () => {
           </div>
 
           {/* Operational Metrics Callout */}
-          {(durationText || potentialRevenue) && (
+          {(durationText || potentialRevenuePaise) && (
             <div className="p-4 rounded-2xl bg-zinc-50 border border-zinc-200/80 grid grid-cols-2 gap-4">
               {durationText && (
                 <div>
@@ -314,10 +315,10 @@ const CreateSchedule = () => {
                   <p className="text-sm font-bold text-zinc-900 mt-0.5">{durationText}</p>
                 </div>
               )}
-              {potentialRevenue && (
+              {potentialRevenuePaise && (
                 <div>
                   <span className="text-[11px] font-bold uppercase tracking-wider text-zinc-400 block">Max Trip Gross</span>
-                  <p className="text-sm font-bold text-emerald-700 mt-0.5">₹{potentialRevenue.toLocaleString('en-IN')}</p>
+                  <p className="text-sm font-bold text-emerald-700 mt-0.5">{formatINR(potentialRevenuePaise)}</p>
                 </div>
               )}
             </div>

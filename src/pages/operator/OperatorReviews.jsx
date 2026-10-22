@@ -35,7 +35,20 @@ const OperatorReviews = () => {
   };
 
   useEffect(() => {
-    fetchReviews();
+    let ignore = false;
+    getOperatorReviews()
+      .then((res) => {
+        if (!ignore) setReviews(res.data?.data?.reviews || []);
+      })
+      .catch(() => {
+        if (!ignore) setError('Failed to load passenger reviews');
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
   }, []);
 
   const handleSendReply = async (reviewId) => {

@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { getProfile, updateProfile } from "../api/profile";
 import { getMyBookings } from "../api/bookings";
+import api from "../api/axiosInstance";
 import Toast from "./Toast";
 import Navbar from "../components/Navbar";
 import {
@@ -35,8 +36,6 @@ const Profile = () => {
   });
 
   const loadProfile = useCallback(async () => {
-    setLoading(true);
-    setError(false);
     try {
       const [profileRes, bookingsRes] = await Promise.allSettled([
         getProfile(),
@@ -65,13 +64,52 @@ const Profile = () => {
   }, []);
 
   useEffect(() => {
-    loadProfile();
-  }, [loadProfile]);
+    let ignore = false;
+    Promise.allSettled([getProfile(), getMyBookings()])
+      .then(([profileRes, bookingsRes]) => {
+        if (ignore) return;
+        if (profileRes.status === "fulfilled" && profileRes.value.data?.data) {
+          const data = profileRes.value.data.data;
+          setProfile(data);
+          const initial = { name: data.name || "", phone: data.phone || "" };
+          setFormData(initial);
+          setOriginalData(initial);
+        } else {
+          setError(true);
+        }
 
-  const handleLogout = useCallback(() => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    navigate("/login");
+        if (bookingsRes.status === "fulfilled" && bookingsRes.value.data?.data) {
+          setBookingCount(bookingsRes.value.data.data.length || 0);
+        }
+      })
+      .catch((err) => {
+        if (!ignore) {
+          console.error(err);
+          setError(true);
+        }
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false);
+      });
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const handleLogout = useCallback(async () => {
+    const refreshToken = localStorage.getItem("refresh_token");
+    try {
+      if (refreshToken) {
+        await api.post('/auth/logout', { refresh_token: refreshToken });
+      }
+    } catch {
+      // Ignored
+    } finally {
+      localStorage.removeItem("token");
+      localStorage.removeItem("refresh_token");
+      localStorage.removeItem("user");
+      navigate("/login");
+    }
   }, [navigate]);
 
   const handleSave = useCallback(async (e) => {
